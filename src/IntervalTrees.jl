@@ -16,17 +16,23 @@ abstract Node{K, V, B}
 immutable NullNode{K, V, B} <: Node{K, V, B} end
 
 type InternalNode{K, V, B} <: Node{K, V, B}
-    # A key takes the form (l, u), where `l` divides the low-end intervals
-    # values in the left and right subtree (i.e., all intervals in the left
-    # subtree have low-end values < l, and all >= l in the right sub-tree), and
-    # u gives the maximum high-end value in either sub-tree.
+    # Internal nodes are keyed by the minimum interval in the right subtree.  We
+    # need internal node keys to be intervals themselves, since ordering by
+    # start value alone only works if start values are unique. We don't
+    # force that restriction, so we must break ties in order to split nodes that
+    # are full of intervals with the same start value.
     keys::Vector{(K, K)}
+
+    # The "interval tree" augmentation. We keey track of the maximum interval
+    # end in the keys two subtrees to make intersection tests efficient.
+    maxends::Vector{K}
 
     children::Vector{Node{K, V, B}}
 
     function InternalNode()
-        t = new(Array((K, K), 0), Array(Node{K, V, B}, 0))
+        t = new(Array((K, K), 0), Array(K, 0), Array(Node{K, V, B}, 0))
         sizehint(t.keys, B - 1)
+        sizehint(t.maxends, B - 1)
         sizehint(t.children, B)
         return t
     end
@@ -66,7 +72,7 @@ end
 
 
 # Default B-tree order
-typealias IntervalTree{K, V} IntervalBTree{K, V, 32}
+typealias IntervalTree{K, V} IntervalBTree{K, V, 64}
 
 
 # Length
@@ -143,6 +149,17 @@ end
 # ---------
 
 
+# The problew with these split functions is that we can
+# have multiple intervals with the same start value. We need to split on a
+# value that actually divides the two.
+
+# Fuck. This won't work at all: if all the intervals have the same start
+# position we would be unable to split the node. I think we have to order on the
+# the whole interval, like: (a,b) < (c,d). Ugh. Fuck my face.
+
+# That means internal nodes need to store three values for keys.
+
+
 # Split a leaf into two, returning (leftnode, rightnode)
 function split!{K, V, B}(left::LeafNode{K, V, B})
     right = LeafNode{K, V, B}()
@@ -171,24 +188,37 @@ function split!{K, V, B}(left::InternalNode{K, V, B})
 
     resize!(right.children, m - div(m, 2))
     resize!(right.keys, m - div(m, 2) - 1)
+    resize!(right.maxends, m - div(m, 2) - 1)
 
     right.children[1:end] = left.children[div(m, 2)+1:end]
     right.keys[1:end] = left.keys[div(m, 2)+1:end]
+    right.maxends[1:end] = left.maxends[div(m, 2)+1:end]
 
     resize!(left.children, div(m, 2))
     resize!(left.keys, div(m, 2) - 1)
+    resize!(left.maxends, div(m, 2) - 1)
 
     return (left, right)
 end
 
 
+# Find the maximum interval end point is a subtree
 function nodemaxend(t::InternalNode)
+    return maximum(t.maxends)
+end
+
+function nodemaxend(t::LeafNode)
     return maximum(map(x -> x[2], t.keys))
 end
 
 
-function nodemaxend(t::LeafNode)
-    return maximum(map(x -> x[2], t.keys))
+# Find the minimum interval in a subtree
+function nodemin(t::InternalNode)
+    return nodemin(t.children[1])
+end
+
+function nodemin(t::LeafNode)
+    return t.keys[1]
 end
 
 
@@ -209,7 +239,8 @@ function setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value0, key0::(Any, Any))
         (leftnode, rightnode, median, maxend) = ans
         # we need a new root
         t.root = InternalNode{K, V, B}()
-        push!(t.root.keys, (median, maxend))
+        push!(t.root.keys, median)
+        push!(t.root.maxends, maxend)
         push!(t.root.children, leftnode)
         push!(t.root.children, rightnode)
         t.n += 1
@@ -221,17 +252,17 @@ end
 
 function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::(K, K))
     i = findidx(t, key) # key index
-    j = i <= length(t) - 1 && key[1] >= t.keys[i][1] ? i + 1 : i # child index
+    j = i <= length(t) - 1 && key >= t.keys[i] ? i + 1 : i # child index
     ans = _setindex!(t.children[j], value, key)
 
     if isa(ans, Bool)
         # update maxend if needed
-        if j > 1 && key[2] > t.keys[j - 1][2]
-            t.keys[j - 1] = (t.keys[j - 1][1], key[2])
+        if j > 1 && key[2] > t.maxends[j - 1]
+            t.maxends[j - 1] = key[2]
         end
 
-        if j <= length(t.keys) && key[2] > t.keys[j][2]
-            t.keys[j] = (t.keys[j][1], key[2])
+        if j <= length(t.keys) && key[2] > t.maxends[j]
+            t.maxends[j] = key[2]
         end
 
         return ans
@@ -239,20 +270,26 @@ function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::(K, K))
         (leftnode, rightnode, median, maxend) = ans
 
         insert!(t.children, j + 1, rightnode)
-        insert!(t.keys, j, (median, maxend))
+        insert!(t.keys, j, median)
+        insert!(t.maxends, j, maxend)
 
-        if j > 1 && t.keys[j - 1][2] < maxend
-            t.keys[j - 1] = (t.keys[j - 1][1], maxend)
+        if j > 1 && t.maxends[j - 1] < maxend
+            t.maxends[j - 1] = maxend
         end
 
-        if j < length(t.keys) && t.keys[j + 1][2] < maxend
-            t.keys[j + 1] = (t.keys[j + 1][1], maxend)
+        if j < length(t.keys) && t.maxends[j + 1] < maxend
+            t.maxends[j + 1] = maxend
         end
 
         # split when full
         if length(t) == B
+            # Here's the problem. We need the minimum value in the right
+            # sub-tree to pass up as the key. Not the first key in the root
+            # of the right sub-tree. Solution: either search for the minimum
+            # whenever we need to split, or pass it up the tree.
+
             (leftnode, rightnode) = split!(t)
-            return (leftnode, rightnode, rightnode.keys[1][1],
+            return (leftnode, rightnode, nodemin(rightnode),
                     max(nodemaxend(leftnode), nodemaxend(rightnode)))
         else
             return true
@@ -273,7 +310,7 @@ function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::(K, K))
         # split when full
         if length(t) == B
             (leftleaf, rightleaf) = split!(t)
-            return (leftleaf, rightleaf, rightleaf.keys[1][1],
+            return (leftleaf, rightleaf, rightleaf.keys[1],
                     max(nodemaxend(leftleaf), nodemaxend(rightleaf)))
         else
             return true
@@ -281,8 +318,6 @@ function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::(K, K))
     end
 end
 
-
-# TODO
 
 
 # Deleting
@@ -305,28 +340,18 @@ function join!{K, V, B}(left::InternalNode{K, V, B}, right::InternalNode{K, V, B
 end
 
 
-# TODO
-
 # Searching
 # ---------
 
 # Find index where a key belongs in internal and leaf nodes.
 function findidx{K, V, B}(t::LeafNode{K, V, B}, key::(K, K))
-    return searchsortedfirst(t.keys, key, 1, length(t), Base.Sort.Forward)
+    return searchsortedfirst(t.keys, key)
 end
 
 function findidx{K, V, B}(t::InternalNode{K, V, B}, key::(K, K))
-    i = searchsortedfirst(t.keys, key[1], 1, length(t) - 1,
-                          Base.Order.ord(isless, first, false))
-    return min(i, length(t) - 1)
+    i = searchsortedfirst(t.keys, key)
+    return min(i, length(t.keys))
 end
-
-
-
-
-
-# Can I write one recursive find function and use callbacks to do insertion?
-
 
 function haskey(t::NullNode, key)
     return false
@@ -340,7 +365,7 @@ end
 
 function haskey{K, V, B}(t::InternalNode{K, V, B}, key::(K, K))
     i = findidx(t, key)
-    if i <= length(t) - 1 && key[1] >= t.key[i][1]
+    if i <= length(t) - 1 && key >= t.key[i]
         return haskey(t.children[i+1], key)
     else
         return haskey(t.children[i], key)
@@ -358,11 +383,50 @@ function haskey{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
 end
 
 
+# TODO: get
+
+
+# TODO: getindex
+
 
 # TODO: point intersection
 
 
 # TODO: interval intersection
+
+
+# Diagnostics
+# -----------
+
+
+# Dumb tree printing, useful only for debuging.
+function showtree(io::IO, t::IntervalBTree)
+    showtree(io, t.root, 0)
+end
+
+
+function showtree(t::IntervalBTree)
+    showtree(STDOUT, t)
+end
+
+
+function showtree(io::IO, t::InternalNode, indent::Int)
+    for (i, child) in enumerate(t.children)
+        showtree(io, child, indent+1)
+        if i <= length(t.keys)
+            print(io, repeat("  ", indent), t.keys[i], ":\n")
+        end
+    end
+end
+
+
+function showtree(io::IO, t::LeafNode, indent::Int)
+    for (k, v) in zip(t.keys, t.values)
+        print(io, repeat("  ", indent), k, ": ", v, "\n")
+    end
+end
+
+
 
 
 end

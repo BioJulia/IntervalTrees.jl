@@ -16,17 +16,25 @@ function randinterval()
 end
 
 
-# Verify that internal node keys are correct
+# Verify that internal node keys and maxend values are correct
 function isvalid(node::IntervalTrees.IntervalBTree)
-    return isvalid(node.root, 0, maxend, maxend)
+    return isvalid(node.root, (0, 0), (maxend, maxend), maxend)
 end
 
 
-function isvalid(node::IntervalTrees.InternalNode, minstart, maxstart, maxend)
+function isvalid(node::IntervalTrees.InternalNode, minint, maxint, maxend)
+    for nodemaxend in node.maxends
+        if nodemaxend > maxend
+            println(STDERR, "here: ", nodemaxend, ", ", maxend)
+            return false
+        end
+    end
+
     for i in 1:length(node.keys)
         k = node.keys[i]
-        if !isvalid(node.children[i], minstart, k[1], k[2]) ||
-           !isvalid(node.children[i+1], k[1], maxstart, k[2])
+        maxend = node.maxends[i]
+        if !isvalid(node.children[i], minint, k, maxend) ||
+           !isvalid(node.children[i+1], k, maxint, maxend)
            return false
        end
     end
@@ -34,9 +42,10 @@ function isvalid(node::IntervalTrees.InternalNode, minstart, maxstart, maxend)
 end
 
 
-function isvalid(node::IntervalTrees.LeafNode, minstart, maxstart, maxend)
-    for (keystart, keyend) in node.keys
-        if !(minstart <= keystart < maxstart) || keyend > maxend
+function isvalid(node::IntervalTrees.LeafNode, minint, maxint, maxend)
+    for k in node.keys
+        if !(minint <= k < maxint) || k[2] > maxend
+            println(STDERR, "here: ", (minint, k, maxint, maxend))
             return false
         end
     end
@@ -59,8 +68,8 @@ end
 
 
 facts("Insertion") do
-    t = IntervalTree{Int, Int}()
-    n = 200
+    t = IntervalTrees.IntervalTree{Int, Int}()
+    n = 100000
 
     context("random insertions") do
         for v in 1:n
