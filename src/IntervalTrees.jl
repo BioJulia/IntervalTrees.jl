@@ -2,9 +2,9 @@
 
 module IntervalTrees
 
-import Base: start, next, done, haskey, length, isempty, setindex!
+import Base: start, next, done, haskey, length, isempty, setindex!, delete!
 
-export IntervalTree
+export IntervalTree, depth
 
 # Each of these types is indexes by K, V, B, where
 #   K : Interval type. Intervals are represented as (K, K) tuples.
@@ -29,8 +29,15 @@ type InternalNode{K, V, B} <: Node{K, V, B}
 
     children::Vector{Node{K, V, B}}
 
+    parent::Union(NullNode{K, V, B}, InternalNode{K, V, B})
+
+    # Sibling/cousin pointers.
+    left::Union(NullNode{K, V, B}, InternalNode{K, V, B})
+    right::Union(NullNode{K, V, B}, InternalNode{K, V, B})
+
     function InternalNode()
-        t = new(Array((K, K), 0), Array(K, 0), Array(Node{K, V, B}, 0))
+        t = new(Array((K, K), 0), Array(K, 0), Array(Node{K, V, B}, 0),
+                NullNode{K, V, B}(), NullNode{K, V, B}(), NullNode{K, V, B}())
         sizehint(t.keys, B - 1)
         sizehint(t.maxends, B - 1)
         sizehint(t.children, B)
@@ -47,12 +54,17 @@ type LeafNode{K, V, B} <: Node{K, V, B}
     # Value i corresponds to the intervals in keys[i].
     values::Vector{V}
 
-    # Next largest leaf node, for fast iteration.
-    sibling::Union(NullNode{K, V, B}, LeafNode{K, V, B})
+    parent::Union(NullNode{K, V, B}, InternalNode{K, V, B})
+
+    # Sibling/cousin pointers.
+    left::Union(NullNode{K, V, B}, LeafNode{K, V, B})
+    right::Union(NullNode{K, V, B}, LeafNode{K, V, B})
 
     function LeafNode()
         t = new(Array((K, K), 0),
                 Array(V, 0),
+                NullNode{K, V, B}(),
+                NullNode{K, V, B}(),
                 NullNode{K, V, B}())
         sizehint(t.keys, B)
         sizehint(t.values, B)
@@ -80,6 +92,17 @@ typealias IntervalTree{K, V} IntervalBTree{K, V, 64}
 
 function length(t::IntervalBTree)
     return t.n
+end
+
+
+function depth(t::IntervalBTree)
+    k = 1
+    node = t.root
+    while !isa(node, LeafNode)
+        k += 1
+        node = node.children[1]
+    end
+    return k
 end
 
 
@@ -112,6 +135,7 @@ end
 # Iterating
 # ---------
 
+
 function start{K, V, B}(t::IntervalBTree{K, V, B})
     # traverse to the first leaf node
     node = t.root
@@ -134,7 +158,7 @@ function next(t::IntervalBTree, state)
     if i < length(leaf)
         return ((key, value), (leaf, i + 1))
     else
-        return ((key, value), (leaf.sibling, 1))
+        return ((key, value), (leaf.right, 1))
     end
 end
 
@@ -149,22 +173,16 @@ end
 # ---------
 
 
-# The problew with these split functions is that we can
-# have multiple intervals with the same start value. We need to split on a
-# value that actually divides the two.
-
-# Fuck. This won't work at all: if all the intervals have the same start
-# position we would be unable to split the node. I think we have to order on the
-# the whole interval, like: (a,b) < (c,d). Ugh. Fuck my face.
-
-# That means internal nodes need to store three values for keys.
-
-
 # Split a leaf into two, returning (leftnode, rightnode)
 function split!{K, V, B}(left::LeafNode{K, V, B})
     right = LeafNode{K, V, B}()
-    right.sibling = left.sibling
-    left.sibling = right
+    right.right = left.right
+    right.left = left
+    left.right = right
+    if !isa(right.right, NullNode)
+        right.right.left = right
+    end
+    right.parent = left.parent
 
     m = length(left)
 
@@ -183,6 +201,13 @@ end
 # Split an internal node in two, returning (leftnode, rightnode)
 function split!{K, V, B}(left::InternalNode{K, V, B})
     right = InternalNode{K, V, B}()
+    right.right = left.right
+    right.left = left
+    left.right = right
+    if !isa(right.right, NullNode)
+        right.right.left = right
+    end
+    right.parent = left.parent
 
     m = length(left)
 
@@ -197,6 +222,10 @@ function split!{K, V, B}(left::InternalNode{K, V, B})
     resize!(left.children, div(m, 2))
     resize!(left.keys, div(m, 2) - 1)
     resize!(left.maxends, div(m, 2) - 1)
+
+    for child in right.children
+        child.parent = right
+    end
 
     return (left, right)
 end
@@ -243,6 +272,8 @@ function setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value0, key0::(Any, Any))
         push!(t.root.maxends, maxend)
         push!(t.root.children, leftnode)
         push!(t.root.children, rightnode)
+        leftnode.parent = t.root
+        rightnode.parent = t.root
         t.n += 1
     end
 
@@ -283,11 +314,6 @@ function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::(K, K))
 
         # split when full
         if length(t) == B
-            # Here's the problem. We need the minimum value in the right
-            # sub-tree to pass up as the key. Not the first key in the root
-            # of the right sub-tree. Solution: either search for the minimum
-            # whenever we need to split, or pass it up the tree.
-
             (leftnode, rightnode) = split!(t)
             return (leftnode, rightnode, nodemin(rightnode),
                     max(nodemaxend(leftnode), nodemaxend(rightnode)))
@@ -322,6 +348,56 @@ end
 
 # Deleting
 # --------
+
+
+function delete!{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
+    key = convert((K, K), key0)
+
+    # What does this need to return?
+    #   1. wether or not the subtree is empty and should be deleted
+    _delete!(t.root, key)
+
+    # TODO: Does the root have only one child? Delete it and promote
+    # the one child to root.
+end
+
+
+function _delete!{K, V, B}(t::InternalNode{K, V, B}, key::(K, K))
+     # TODO
+end
+
+
+function _delete!{K, V, B}(t::LeafNode{K, V, B}, key::(K, K))
+    i = findidx(t, key)
+
+    # do nothing if the key isn't present
+    if i < 1 || i > length(t) || t.keys[i] != key
+        return
+    end
+
+    splice!(t.keys, i)
+    splice!(t.values, i)
+
+    if length(t) >= div(B, 2)
+        return
+    end
+
+    # otherwise we are underfull
+
+    # TODO: I'm realizing now that I really need a left and right sibling
+    # pointer. Otherwise, if the rightmost leaf gets underful, it has
+    # no one to borrow from or merge with.
+
+    # try to borrow from our sibling
+    if !isa(t.sibling, NullNode{K, V, B}) && length(t.sibling) > div(B, 2)
+
+    else
+        # merge with sibling
+    end
+end
+
+
+
 
 # Join two leaf nodes into one.
 function join!{K, V, B}(left::LeafNode{K, V, B}, right::LeafNode{K, V, B})
@@ -365,7 +441,7 @@ end
 
 function haskey{K, V, B}(t::InternalNode{K, V, B}, key::(K, K))
     i = findidx(t, key)
-    if i <= length(t) - 1 && key >= t.key[i]
+    if i <= length(t) - 1 && key >= t.keys[i]
         return haskey(t.children[i+1], key)
     else
         return haskey(t.children[i], key)
