@@ -15,6 +15,12 @@ abstract Node{K, V, B}
 
 immutable NullNode{K, V, B} <: Node{K, V, B} end
 
+
+function isnull(node::Node)
+    return isa(node, NullNode)
+end
+
+
 type InternalNode{K, V, B} <: Node{K, V, B}
     # Internal nodes are keyed by the minimum interval in the right subtree.  We
     # need internal node keys to be intervals themselves, since ordering by
@@ -39,7 +45,7 @@ type InternalNode{K, V, B} <: Node{K, V, B}
         t = new(Array((K, K), 0), Array(K, 0), Array(Node{K, V, B}, 0),
                 NullNode{K, V, B}(), NullNode{K, V, B}(), NullNode{K, V, B}())
         sizehint(t.keys, B - 1)
-        sizehint(t.maxends, B - 1)
+        sizehint(t.maxends, B)
         sizehint(t.children, B)
         return t
     end
@@ -212,16 +218,16 @@ function split!{K, V, B}(left::InternalNode{K, V, B})
     m = length(left)
 
     resize!(right.children, m - div(m, 2))
+    resize!(right.maxends, m - div(m, 2))
     resize!(right.keys, m - div(m, 2) - 1)
-    resize!(right.maxends, m - div(m, 2) - 1)
 
     right.children[1:end] = left.children[div(m, 2)+1:end]
-    right.keys[1:end] = left.keys[div(m, 2)+1:end]
     right.maxends[1:end] = left.maxends[div(m, 2)+1:end]
+    right.keys[1:end] = left.keys[div(m, 2)+1:end]
 
     resize!(left.children, div(m, 2))
+    resize!(left.maxends, div(m, 2))
     resize!(left.keys, div(m, 2) - 1)
-    resize!(left.maxends, div(m, 2) - 1)
 
     for child in right.children
         child.parent = right
@@ -265,11 +271,12 @@ function setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value0, key0::(Any, Any))
             t.n += 1
         end
     else
-        (leftnode, rightnode, median, maxend) = ans
+        (leftnode, rightnode, median, leftmaxend, rightmaxend) = ans
         # we need a new root
         t.root = InternalNode{K, V, B}()
         push!(t.root.keys, median)
-        push!(t.root.maxends, maxend)
+        push!(t.root.maxends, leftmaxend)
+        push!(t.root.maxends, rightmaxend)
         push!(t.root.children, leftnode)
         push!(t.root.children, rightnode)
         leftnode.parent = t.root
@@ -288,35 +295,24 @@ function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::(K, K))
 
     if isa(ans, Bool)
         # update maxend if needed
-        if j > 1 && key[2] > t.maxends[j - 1]
-            t.maxends[j - 1] = key[2]
-        end
-
-        if j <= length(t.keys) && key[2] > t.maxends[j]
+        if key[2] > t.maxends[j]
             t.maxends[j] = key[2]
         end
 
         return ans
     else
-        (leftnode, rightnode, median, maxend) = ans
+        (leftnode, rightnode, median, leftmaxend, rightmaxend) = ans
 
         insert!(t.children, j + 1, rightnode)
+        insert!(t.maxends, j + 1, rightmaxend)
+        t.maxends[j] = leftmaxend
         insert!(t.keys, j, median)
-        insert!(t.maxends, j, maxend)
-
-        if j > 1 && t.maxends[j - 1] < maxend
-            t.maxends[j - 1] = maxend
-        end
-
-        if j < length(t.keys) && t.maxends[j + 1] < maxend
-            t.maxends[j + 1] = maxend
-        end
 
         # split when full
         if length(t) == B
             (leftnode, rightnode) = split!(t)
             return (leftnode, rightnode, nodemin(rightnode),
-                    max(nodemaxend(leftnode), nodemaxend(rightnode)))
+                    nodemaxend(leftnode), nodemaxend(rightnode))
         else
             return true
         end
@@ -337,7 +333,7 @@ function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::(K, K))
         if length(t) == B
             (leftleaf, rightleaf) = split!(t)
             return (leftleaf, rightleaf, rightleaf.keys[1],
-                    max(nodemaxend(leftleaf), nodemaxend(rightleaf)))
+                    nodemaxend(leftleaf), nodemaxend(rightleaf))
         else
             return true
         end
@@ -362,8 +358,47 @@ function delete!{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
 end
 
 
+# Delete key from the subtree is present. Return a pair of Bools (keyfound,
+# delete_child, maxend, minstart). Keyfound is true if the key was found,
+# delete_child is true if t should be deleted from its parent.
 function _delete!{K, V, B}(t::InternalNode{K, V, B}, key::(K, K))
-     # TODO
+    i = findidx(t, key)
+    j = i <= length(t) - 1 && key >= t.keys[i] ? i + 1 : i # child index
+
+    keyfound, delete_child, maxend, minstart = _delete!(t.children[j], key)
+
+    if delete_child
+        child = t.children[j]
+        splice!(t.children, j)
+
+        if j == 1
+            splice!(t.keys, 1)
+            splice!(t.maxends, 1)
+        else
+            splice!(t.keys, j - 1)
+            splice!(t.maxends, j - 1)
+        end
+
+        # TODO: update keys and maxend
+
+        # TODO: are we underful. Do the whole song and dance from the leaf
+        # node over again.
+
+    elseif keyfound
+        # This is actually really tricky. Passing the child's maxend is not
+        # enough, since a key maxend may come from the other branch.
+
+        # Maybe I should be storing a maxend field for every child, not every
+        # key.
+
+        # Fuuuck. We don't actually now wether maxend has changed, since
+        # there may be another item with the same maxend. This seems like
+        # something I need to pass upwards.
+
+        # TODO: we may need to update keys and maxend
+    end
+
+    return (keyfound, false)
 end
 
 
@@ -372,45 +407,74 @@ function _delete!{K, V, B}(t::LeafNode{K, V, B}, key::(K, K))
 
     # do nothing if the key isn't present
     if i < 1 || i > length(t) || t.keys[i] != key
-        return
+        return (false, false)
     end
 
     splice!(t.keys, i)
     splice!(t.values, i)
 
-    if length(t) >= div(B, 2)
-        return
+    minsize = div(B, 2)
+
+    # not underfull
+    if length(t) >= minsize
+        return (true, false)
     end
 
-    # otherwise we are underfull
-
-    # TODO: I'm realizing now that I really need a left and right sibling
-    # pointer. Otherwise, if the rightmost leaf gets underful, it has
-    # no one to borrow from or merge with.
-
-    # try to borrow from our sibling
-    if !isa(t.sibling, NullNode{K, V, B}) && length(t.sibling) > div(B, 2)
-
-    else
-        # merge with sibling
+    if isempty(t)
+        return (true, true)
     end
+
+    # borrow right
+    if !isnull(t.right) && t.right.parent == t.parent && length(t.right) > minsize
+        push!(t.keys, splice!(t.right.keys, 1))
+        push!(t.values, splice!(t.right.values, 1))
+        return (true, false)
+    end
+
+    # borrow left
+    if !isnull(t.left) && t.left.parent == t.parent && length(t.left) > minsize
+        insert!(t.keys, 1, pop!(t.left.keys))
+        insert!(t.values, 1, pop!(t.left.values))
+        return (true, false)
+    end
+
+    # merge left
+    if !isnull(t.left) && t.left.parent == t.parent
+        merge!(t.left, t)
+        t.left.right = t.right
+        if !isnull(t.right)
+            t.right.left = t.left
+        end
+        return (true, true)
+    end
+
+    # merge right
+    if !isnull(t.right) && t.right.parent == t.parent
+        merge!(t.right, t)
+        t.right.left = t.left
+        if !isnull(t.left)
+            t.left.right = t.right
+        end
+        return (true, true)
+    end
+
+    error("Malformed interval tree. This is a bug.")
 end
-
-
 
 
 # Join two leaf nodes into one.
-function join!{K, V, B}(left::LeafNode{K, V, B}, right::LeafNode{K, V, B})
-    @assert length(left) + length(right) <= B
-    # TODO: rewrite this with resizing
-    left.sibling = right.sibling
-    left.keys[left.m+1:left.m+right.m] = right.keys[1:right.m]
-    left.values[left.m+1:left.m+right.m] = right.values[1:right.m]
-    return left
+function merge!{K, V, B}(left::LeafNode{K, V, B}, right::LeafNode{K, V, B})
+    leftlen, rightlen = length(left), length(rigth)
+    @assert leftlen + rightlen <= B
+    resize!(right.keys, leftlen + rightlen)
+    resize!(right.values, leftlen + rightlen)
+    left.keys[leftlen+1:end] = right.keys
+    left.values[leftlen+1:end] = right.values
+    return
 end
 
 # Join two internal nodes into one
-function join!{K, V, B}(left::InternalNode{K, V, B}, right::InternalNode{K, V, B})
+function merge!{K, V, B}(left::InternalNode{K, V, B}, right::InternalNode{K, V, B})
     @assert length(left) + length(right) <= B
     # TODO
 end

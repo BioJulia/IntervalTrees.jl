@@ -31,9 +31,8 @@ function validkeys(node::IntervalTrees.InternalNode, minint, maxint, maxend)
 
     for i in 1:length(node.keys)
         k = node.keys[i]
-        maxend = node.maxends[i]
-        if !validkeys(node.children[i], minint, k, maxend) ||
-           !validkeys(node.children[i+1], k, maxint, maxend)
+        if !validkeys(node.children[i], minint, k, node.maxends[i]) ||
+           !validkeys(node.children[i+1], k, maxint, node.maxends[i+1])
            return false
        end
     end
@@ -44,6 +43,7 @@ end
 function validkeys(node::IntervalTrees.LeafNode, minint, maxint, maxend)
     for k in node.keys
         if !(minint <= k < maxint) || k[2] > maxend
+            println(STDERR, (k[2], maxend))
             return false
         end
     end
