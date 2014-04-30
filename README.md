@@ -1,11 +1,28 @@
 
-**This is a work in proress interval tree implementation. Not yet ready for use.**
+# IntervalTrees
+
+**This is a work in progress interval tree implementation. Not yet ready for use.**
+
+[![Build Status](https://api.travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/dcjones/Gadfly.jl)
+
+## API
+
+IntervalTrees exports one type: `IntervalTree{K, V}`.  It implement a
+associative container mapping `(K, K)` pairs to to values of type `V`.  `K` may
+be any ordered type, but only pairs `(a, b)` where `a ≤ b` can be stored.
+
+Besides supporting standard dictionary operations (such as `S[(a,b)] = c`,
+`delete!(S, (a,b))`, or `haskey(S, (a,b))`), IntervalTrees can efficiently
+perform intersection, and other interval specific operations. The API for
+intersections, union, extensions, etc is still being defined, and this README
+will be expanded when completed.
+
+
+## Algorithms
 
 This is a B+-tree variant used to map intervals (any tuple `(a, b)` over an
 ordered type where `a <= b`) to arbitrary data supporting fast lookups,
 deletions, and intersection tests.
-
-## Rationale 
 
 Many operations over two or more sets of intervals can be most efficiently
 implemented by jointly iterating over the sets in order. For example, finding
