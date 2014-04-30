@@ -1,3 +1,4 @@
+#!/usr/bin/env julia
 
 module TestIntervalTrees
 
@@ -211,7 +212,7 @@ end
 
 facts("Deletion") do
     t = IntervalTrees.IntervalTree{Int, Int}()
-    n = 100000
+    n = 30
 
     # insert n random intervals
     intervals = [randinterval() for _ in 1:n]

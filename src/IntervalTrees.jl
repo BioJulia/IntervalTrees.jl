@@ -2,9 +2,13 @@
 
 module IntervalTrees
 
-import Base: start, next, done, haskey, length, isempty, setindex!, delete!
+import Base: start, next, done, haskey, length, isempty, getindex, setindex!,
+             delete!, push!, pop!, resize!, insert!, splice!, copy!, size,
+             searchsortedfirst
 
 export IntervalTree, depth
+
+include("slice.jl")
 
 # Each of these types is indexes by K, V, B, where
 #   K : Interval type. Intervals are represented as (K, K) tuples.
@@ -27,12 +31,12 @@ type InternalNode{K, V, B} <: Node{K, V, B}
     # start value alone only works if start values are unique. We don't
     # force that restriction, so we must break ties in order to split nodes that
     # are full of intervals with the same start value.
-    keys::Vector{(K, K)}
+    keys::Slice
 
     # Maximum interval end-point in this subtree.
     maxend::K
 
-    children::Vector{Node{K, V, B}}
+    children::Slice{Node{K, V, B}, B}
 
     parent::Union(NullNode{K, V, B}, InternalNode{K, V, B})
 
@@ -41,10 +45,8 @@ type InternalNode{K, V, B} <: Node{K, V, B}
     right::Union(NullNode{K, V, B}, InternalNode{K, V, B})
 
     function InternalNode()
-        t = new(Array((K, K), 0), zero(K), Array(Node{K, V, B}, 0),
+        t = new(Slice{(K, K), B - 1}(), zero(K), Slice{Node{K, V, B}, B}(),
                 NullNode{K, V, B}(), NullNode{K, V, B}(), NullNode{K, V, B}())
-        sizehint(t.keys, B - 1)
-        sizehint(t.children, B)
         return t
     end
 end
@@ -53,10 +55,10 @@ end
 type LeafNode{K, V, B} <: Node{K, V, B}
     # Unlike internal nodes, the keys here coorespond to the actual stored
     # intervals.
-    keys::Vector{(K, K)}
+    keys::Slice{(K, K), B}
 
     # Value i corresponds to the intervals in keys[i].
-    values::Vector{V}
+    values::Slice{V, B}
 
     # maximum interval end-point in this leaf node.
     maxend::K
@@ -68,14 +70,12 @@ type LeafNode{K, V, B} <: Node{K, V, B}
     right::Union(NullNode{K, V, B}, LeafNode{K, V, B})
 
     function LeafNode()
-        t = new(Array((K, K), 0),
-                Array(V, 0),
+        t = new(Slice{(K, K), B}(),
+                Slice{V, B}(),
                 zero(K),
                 NullNode{K, V, B}(),
                 NullNode{K, V, B}(),
                 NullNode{K, V, B}())
-        sizehint(t.keys, B)
-        sizehint(t.values, B)
         return t
     end
 end
@@ -196,8 +196,9 @@ function split!{K, V, B}(left::LeafNode{K, V, B})
 
     resize!(right.keys, m - div(m, 2))
     resize!(right.values, m - div(m, 2))
-    right.keys[1:end] = left.keys[div(m, 2)+1:end]
-    right.values[1:end] = left.values[div(m, 2)+1:end]
+
+    copy!(right.keys, 1, left.keys, div(m, 2) + 1, length(right.keys))
+    copy!(right.values, 1, left.values, div(m, 2) + 1, length(right.values))
 
     resize!(left.keys, div(m, 2))
     resize!(left.values, div(m, 2))
@@ -225,8 +226,8 @@ function split!{K, V, B}(left::InternalNode{K, V, B})
     resize!(right.children, m - div(m, 2))
     resize!(right.keys, m - div(m, 2) - 1)
 
-    right.children[1:end] = left.children[div(m, 2)+1:end]
-    right.keys[1:end] = left.keys[div(m, 2)+1:end]
+    copy!(right.children, 1, left.children, div(m, 2)+1, length(right.children))
+    copy!(right.keys, 1, left.keys, div(m, 2)+1, length(right.keys))
 
     resize!(left.children, div(m, 2))
     resize!(left.keys, div(m, 2) - 1)
@@ -243,12 +244,25 @@ end
 
 
 # Find the maximum interval end point is a subtree
-function nodemaxend(t::InternalNode)
-    return maximum(map(child -> child.maxend, t.children))
+function nodemaxend{K, V, B}(t::InternalNode{K, V, B})
+    maxend = zero(K)
+    for i in 1:length(t.children)
+        if t.children[i].maxend > maxend
+            maxend = t.children[i].maxend
+        end
+    end
+    return maxend
 end
 
-function nodemaxend(t::LeafNode)
-    return maximum(map(x -> x[2], t.keys))
+
+function nodemaxend{K, V, B}(t::LeafNode{K, V, B})
+    maxend = zero(K)
+    for i in 1:length(t.keys)
+        if t.keys[i][2] > maxend
+            maxend = t.keys[i][2]
+        end
+    end
+    return maxend
 end
 
 
@@ -293,9 +307,6 @@ end
 
 
 function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::(K, K))
-    #=for i in 1:length(t.keys)=#
-        #=@assert t.keys[i] == t.children[i+1]=#
-    #=end=#
     i = findidx(t, key) # key index
     j = i <= length(t) - 1 && key >= t.keys[i] ? i + 1 : i # child index
     ans = _setindex!(t.children[j], value, key)
@@ -573,8 +584,8 @@ function merge!{K, V, B}(left::LeafNode{K, V, B}, right::LeafNode{K, V, B})
     @assert leftlen + rightlen <= B
     resize!(left.keys, leftlen + rightlen)
     resize!(left.values, leftlen + rightlen)
-    left.keys[leftlen+1:end] = right.keys
-    left.values[leftlen+1:end] = right.values
+    copy!(left.keys, leftlen+1, right.keys, 1, length(right.keys))
+    copy!(left.values, leftlen+1, right.values, 1, length(right.values))
     left.maxend = nodemaxend(left)
     return
 end
@@ -586,12 +597,12 @@ function merge!{K, V, B}(left::InternalNode{K, V, B}, right::InternalNode{K, V, 
     @assert length(left) + length(right) <= B
     resize!(left.keys, leftlen + rightlen - 1)
     resize!(left.children, leftlen + rightlen)
-    left.children[leftlen+1:end] = right.children
+    copy!(left.children, leftlen+1, right.children, 1, length(right.children))
     for child in left.children[leftlen+1:end]
         child.parent = left
     end
     left.keys[leftlen] = minkey(left.children[leftlen+1])
-    left.keys[leftlen+1:end] = right.keys
+    copy!(left.keys, leftlen+1, right.keys, 1, length(right.keys))
     left.maxend = nodemaxend(left)
     return
 end

@@ -3,7 +3,7 @@
 
 **This is a work in progress interval tree implementation. Not yet ready for use.**
 
-[![Build Status](https://api.travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/dcjones/Gadfly.jl)
+[![Build Status](https://api.travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/BioJulia/IntervalTrees.jl)
 
 ## API
 
