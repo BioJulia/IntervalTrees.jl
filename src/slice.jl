@@ -92,7 +92,7 @@ end
 function splice!{T, N}(s::Slice{T, N}, i::Integer)
     if 1 <= i <= s.n
         @inbounds x = s.data[i]
-        @inbounds copy!(s.data, i, sa.data, i + 1, s.n - i)
+        @inbounds copy!(s.data, i, s.data, i + 1, s.n - i)
         s.n -= 1
         return x
     else
