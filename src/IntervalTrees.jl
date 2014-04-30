@@ -244,7 +244,7 @@ end
 
 # Find the maximum interval end point is a subtree
 function nodemaxend(t::InternalNode)
-    return maximum(t.maxends)
+    return maximum(map(child -> child.maxend, t.children))
 end
 
 function nodemaxend(t::LeafNode)
@@ -253,11 +253,11 @@ end
 
 
 # Find the minimum interval in a subtree
-function nodemin(t::InternalNode)
-    return nodemin(t.children[1])
+function minkey(t::InternalNode)
+    return minkey(t.children[1])
 end
 
-function nodemin(t::LeafNode)
+function minkey(t::LeafNode)
     return t.keys[1]
 end
 
@@ -293,6 +293,9 @@ end
 
 
 function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::(K, K))
+    #=for i in 1:length(t.keys)=#
+        #=@assert t.keys[i] == t.children[i+1]=#
+    #=end=#
     i = findidx(t, key) # key index
     j = i <= length(t) - 1 && key >= t.keys[i] ? i + 1 : i # child index
     ans = _setindex!(t.children[j], value, key)
@@ -316,7 +319,7 @@ function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::(K, K))
         # split when full
         if length(t) == B
             (leftnode, rightnode) = split!(t)
-            return (leftnode, rightnode, nodemin(rightnode),
+            return (leftnode, rightnode, minkey(rightnode),
                     max(leftnode.maxend, rightnode.maxend))
         else
             return true
@@ -356,22 +359,33 @@ end
 
 function delete!{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
     key = convert((K, K), key0)
+    ans = _delete!(t.root, key)
 
-    # What does this need to return?
-    #   1. wether or not the subtree is empty and should be deleted
-    _delete!(t.root, key)
+    if ans.keyfound
+        t.n -= 1
+    end
 
-    # TODO: Does the root have only one child? Delete it and promote
-    # the one child to root.
+    # if the root has only one child, promote the child
+    if isa(t.root, InternalNode) && length(t.root) == 1
+        t.root = t.root.children[1]
+        t.root.parent = NullNode{K, V, B}()
+    end
+
+    return
 end
 
 
 # Information returned from a call to _delete
-immutable DeleteResult{K}
+immutable DeleteResult
     keyfound::Bool # true if the key was found
-    deletechild::Bool # true if the child should be deleted
-    maxend::Union(Nothing, K) # maxend of the subtree
-    minint::Union(Nothing, (K,K)) # minimum interval in the subtree
+
+    # Indicate what steps are need to account for an updated child. One of:
+    #   :delete -> Delet the child node.
+    #   :deleteright -> Delete the child's right sibling.
+    #   :updateleft -> Update the key separating the node from its left sibling
+    #   :updateright -> Update the key separating the node from its right #   sibling
+    #   :none -> No changes needed.
+    fate::Symbol
 end
 
 
@@ -382,40 +396,100 @@ function _delete!{K, V, B}(t::InternalNode{K, V, B}, key::(K, K))
 
     ans = _delete!(t.children[j], key)
 
-    keyfound, delete_child, maxend, minint = ans
-
-    if delete_child
-        child = t.children[j]
-        splice!(t.children, j)
-
-        if j == 1
-            splice!(t.keys, 1)
-            splice!(t.maxends, 1)
-        else
-            splice!(t.keys, j - 1)
-            splice!(t.maxends, j - 1)
-        end
-
-        # TODO: update keys and maxend
-
-        # TODO: are we underful. Do the whole song and dance from the leaf
-        # node over again.
-
-    elseif keyfound
-        # This is actually really tricky. Passing the child's maxend is not
-        # enough, since a key maxend may come from the other branch.
-
-        # Maybe I should be storing a maxend field for every child, not every
-        # key.
-
-        # Fuuuck. We don't actually now wether maxend has changed, since
-        # there may be another item with the same maxend. This seems like
-        # something I need to pass upwards.
-
-        # TODO: we may need to update keys and maxend
+    if !ans.keyfound
+        return DeleteResult(false, :none)
     end
 
-    return (keyfound, false)
+    if ans.fate == :none
+        t.maxend = nodemaxend(t)
+        return DeleteResult(true, :none)
+    elseif ans.fate == :updateleft
+        t.maxend = nodemaxend(t)
+        if j > 1
+            t.keys[j - 1] = minkey(t.children[j]);
+            return DeleteResult(true, :none)
+        else
+            return DeleteResult(true, :updateleft)
+        end
+    elseif ans.fate == :updateright
+        t.maxend = nodemaxend(t)
+        if j < length(t)
+            t.keys[j] = minkey(t.children[j+1])
+        end
+
+        if j > 1
+            t.keys[j - 1] = minkey(t.children[j]);
+            return DeleteResult(true, :none)
+        else
+            return DeleteResult(true, :updateleft)
+        end
+    elseif ans.fate == :delete || ans.fate == :deleteright
+        deleteidx = ans.fate == :delete ? j : j + 1
+        if deleteidx == 1
+            splice!(t.keys, 1)
+        else
+            splice!(t.keys, deleteidx - 1)
+        end
+        splice!(t.children, deleteidx)
+        t.maxend = nodemaxend(t)
+
+        # not underfull
+        minsize = div(B, 2)
+        if length(t) >= minsize
+            return DeleteResult(true, deleteidx == 1 ? :updateleft : :none)
+        end
+
+        # borrow right
+        if !isnull(t.right) && t.right.parent == t.parent && length(t.right) > minsize
+            splice!(t.right.keys, 1)
+            push!(t.children, splice!(t.right.children, 1))
+            push!(t.keys, minkey(t.children[end]))
+            t.maxend = max(t.maxend, nodemaxend(t.children[end]))
+            t.right.maxend = nodemaxend(t.right)
+            t.children[end].parent = t
+
+            return DeleteResult(true, :updateright)
+        end
+
+        # borrow left
+        if !isnull(t.left) && t.left.parent == t.parent && length(t.left) > minsize
+            insert!(t.children, 1, pop!(t.left.children))
+            pop!(t.left.keys)
+            insert!(t.keys, 1, minkey(t.children[2]))
+            t.maxend = max(t.maxend, nodemaxend(t.children[1]))
+            t.left.maxend = nodemaxend(t.left)
+            t.children[1].parent = t
+
+            return DeleteResult(true, :updateleft)
+        end
+
+        # merge with left
+        if !isnull(t.left) && t.left.parent == t.parent
+            merge!(t.left, t)
+            t.left.right = t.right
+            if !isnull(t.right)
+                t.right.left = t.left
+            end
+
+            return DeleteResult(true, :delete)
+        end
+
+        # merge with right
+        if !isnull(t.right) && t.right.parent == t.parent
+            merge!(t, t.right)
+            if !isnull(t.right.right)
+                t.right.right.left = t
+            end
+            t.right = t.right.right
+
+            return DeleteResult(true, :deleteright)
+        end
+
+        # Allow the root node to be underfull
+        return DeleteResult(true, :none)
+    end
+
+    error("Undefined child fate encountered.")
 end
 
 
@@ -424,81 +498,102 @@ function _delete!{K, V, B}(t::LeafNode{K, V, B}, key::(K, K))
 
     # do nothing if the key isn't present
     if i < 1 || i > length(t) || t.keys[i] != key
-        return DeleteResult{K}(false, false, nothing, nothing)
+        return DeleteResult(false, :none)
     end
 
     splice!(t.keys, i)
     splice!(t.values, i)
 
+    # This is the root node. Allow it to be empty.
+    if isempty(t)
+        return DeleteResult(true, :none)
+    end
+
     minsize = div(B, 2)
+
+    t.maxend = nodemaxend(t)
 
     # not underfull
     if length(t) >= minsize
-        return DeleteResult(true, false, nodemaxend(t), t.keys[1])
+        return DeleteResult(true, i == 1 ? :updateleft : :none)
     end
 
     if isempty(t)
-        return DeleteResult(true, true, nothing, nothing)
+        return DeleteResult(true, :delete)
     end
 
     # borrow right
     if !isnull(t.right) && t.right.parent == t.parent && length(t.right) > minsize
         push!(t.keys, splice!(t.right.keys, 1))
         push!(t.values, splice!(t.right.values, 1))
+        t.maxend = max(t.maxend, t.keys[end][2])
+        t.right.maxend = nodemaxend(t.right)
 
-        # Fuck! This is not enough! We have have changed the maxend or
-        # key of a sibling. Pass maxend for the left and right also?
-        # What about updating their keys?
-
-        return (true, false)
+        return DeleteResult(true, :updateright)
     end
 
     # borrow left
     if !isnull(t.left) && t.left.parent == t.parent && length(t.left) > minsize
         insert!(t.keys, 1, pop!(t.left.keys))
         insert!(t.values, 1, pop!(t.left.values))
-        return (true, false)
+        t.maxend = max(t.maxend, t.keys[1][2])
+        t.left.maxend = nodemaxend(t.left)
+
+        return DeleteResult(true, :updateleft)
     end
 
-    # merge left
+    # merge with left
     if !isnull(t.left) && t.left.parent == t.parent
         merge!(t.left, t)
         t.left.right = t.right
         if !isnull(t.right)
             t.right.left = t.left
         end
-        return (true, true)
+        return DeleteResult(true, :delete)
     end
 
-    # merge right
+    # merge with right
     if !isnull(t.right) && t.right.parent == t.parent
-        merge!(t.right, t)
-        t.right.left = t.left
-        if !isnull(t.left)
-            t.left.right = t.right
+        merge!(t, t.right)
+        if !isnull(t.right.right)
+            t.right.right.left = t
         end
-        return (true, true)
+        t.right = t.right.right
+        return DeleteResult(true, :deleteright)
     end
 
-    error("Malformed interval tree. This is a bug.")
+    # This must be the root node. Allow it to be underfull.
+    return DeleteResult(true, :none)
 end
 
 
 # Join two leaf nodes into one.
 function merge!{K, V, B}(left::LeafNode{K, V, B}, right::LeafNode{K, V, B})
-    leftlen, rightlen = length(left), length(rigth)
+    leftlen, rightlen = length(left), length(right)
     @assert leftlen + rightlen <= B
-    resize!(right.keys, leftlen + rightlen)
-    resize!(right.values, leftlen + rightlen)
+    resize!(left.keys, leftlen + rightlen)
+    resize!(left.values, leftlen + rightlen)
     left.keys[leftlen+1:end] = right.keys
     left.values[leftlen+1:end] = right.values
+    left.maxend = nodemaxend(left)
     return
 end
 
+
 # Join two internal nodes into one
 function merge!{K, V, B}(left::InternalNode{K, V, B}, right::InternalNode{K, V, B})
+    leftlen, rightlen = length(left), length(right)
     @assert length(left) + length(right) <= B
-    # TODO
+    resize!(left.keys, leftlen + rightlen - 1)
+    resize!(left.children, leftlen + rightlen)
+    left.children[leftlen+1:end] = right.children
+    for child in left.children[leftlen+1:end]
+        child.parent = left
+    end
+    left.keys[leftlen] = minkey(left.children[leftlen+1])
+    left.keys[leftlen+1:end] = right.keys
+    left.maxend = nodemaxend(left)
+    return
 end
 
 
@@ -589,8 +684,5 @@ function showtree(io::IO, t::LeafNode, indent::Int)
 end
 
 
-
-
 end
-
 

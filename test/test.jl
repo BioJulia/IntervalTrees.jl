@@ -31,6 +31,11 @@ function validkeys(node::IntervalTrees.InternalNode, minint, maxint)
 
     for i in 1:length(node.keys)
         k = node.keys[i]
+
+        if IntervalTrees.minkey(node.children[i+1]) != k
+            return false
+        end
+
         if !validkeys(node.children[i], minint, k) ||
            !validkeys(node.children[i+1], k, maxint)
            return false
@@ -154,13 +159,14 @@ end
 
 facts("Intersecting") do
     t = IntervalTree{Int, Int}()
-
+   # TODO
 end
 
 
 facts("Iteration") do
     t = IntervalTree{Int, Int}()
     @fact isempty(collect(t)) => true
+    # TODO
 end
 
 
@@ -247,4 +253,5 @@ end
 
 
 end
+
 
