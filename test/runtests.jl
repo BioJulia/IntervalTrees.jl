@@ -18,8 +18,10 @@ end
 
 
 # Verify that internal node keys and maxend values are correct
-function validkeys(t::IntervalTrees.IntervalBTree)
-    return validkeys(t.root, (0, 0), (maxend, maxend))
+function validkeys{K, V, B}(t::IntervalTrees.IntervalBTree{K, V, B})
+    minint = IntervalTrees.Interval{K}(0, 0)
+    maxint = IntervalTrees.Interval{K}(maxend, maxend)
+    return validkeys(t.root, minint, maxint)
 end
 
 
@@ -48,7 +50,7 @@ end
 
 function validkeys(node::IntervalTrees.LeafNode, minint, maxint)
     for k in node.keys
-        if !(minint <= k < maxint) || k[2] > node.maxend
+        if !(minint <= k < maxint) || k.b > node.maxend
             return false
         end
     end

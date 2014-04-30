@@ -4,11 +4,23 @@ module IntervalTrees
 
 import Base: start, next, done, haskey, length, isempty, getindex, setindex!,
              delete!, push!, pop!, resize!, insert!, splice!, copy!, size,
-             searchsortedfirst
+             searchsortedfirst, isless
 
 export IntervalTree, depth
 
 include("slice.jl")
+
+
+immutable Interval{T}
+    a::T
+    b::T
+end
+
+
+function isless(u::Interval, v::Interval)
+    return u.a < v.a || (u.a == v.a && u.b < v.b)
+end
+
 
 # Each of these types is indexes by K, V, B, where
 #   K : Interval type. Intervals are represented as (K, K) tuples.
@@ -45,7 +57,7 @@ type InternalNode{K, V, B} <: Node{K, V, B}
     right::Union(NullNode{K, V, B}, InternalNode{K, V, B})
 
     function InternalNode()
-        t = new(Slice{(K, K), B - 1}(), zero(K), Slice{Node{K, V, B}, B}(),
+        t = new(Slice{Interval{K}, B - 1}(), zero(K), Slice{Node{K, V, B}, B}(),
                 NullNode{K, V, B}(), NullNode{K, V, B}(), NullNode{K, V, B}())
         return t
     end
@@ -55,7 +67,7 @@ end
 type LeafNode{K, V, B} <: Node{K, V, B}
     # Unlike internal nodes, the keys here coorespond to the actual stored
     # intervals.
-    keys::Slice{(K, K), B}
+    keys::Slice{Interval{K}, B}
 
     # Value i corresponds to the intervals in keys[i].
     values::Slice{V, B}
@@ -70,7 +82,7 @@ type LeafNode{K, V, B} <: Node{K, V, B}
     right::Union(NullNode{K, V, B}, LeafNode{K, V, B})
 
     function LeafNode()
-        t = new(Slice{(K, K), B}(),
+        t = new(Slice{Interval{K}, B}(),
                 Slice{V, B}(),
                 zero(K),
                 NullNode{K, V, B}(),
@@ -164,9 +176,9 @@ function next(t::IntervalBTree, state)
     key, value = leaf.keys[i], leaf.values[i]
 
     if i < length(leaf)
-        return ((key, value), (leaf, i + 1))
+        return (((key.a, key.b), value), (leaf, i + 1))
     else
-        return ((key, value), (leaf.right, 1))
+        return (((key.a, key.b), value), (leaf.right, 1))
     end
 end
 
@@ -203,8 +215,8 @@ function split!{K, V, B}(left::LeafNode{K, V, B})
     resize!(left.keys, div(m, 2))
     resize!(left.values, div(m, 2))
 
-    left.maxend = maximum([key[2] for key in left.keys])
-    right.maxend = maximum([key[2] for key in right.keys])
+    left.maxend = maximum([key.b for key in left.keys])
+    right.maxend = maximum([key.b for key in right.keys])
 
     return (left, right)
 end
@@ -258,8 +270,8 @@ end
 function nodemaxend{K, V, B}(t::LeafNode{K, V, B})
     maxend = zero(K)
     for i in 1:length(t.keys)
-        if t.keys[i][2] > maxend
-            maxend = t.keys[i][2]
+        if t.keys[i].b > maxend
+            maxend = t.keys[i].b
         end
     end
     return maxend
@@ -277,11 +289,7 @@ end
 
 
 function setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value0, key0::(Any, Any))
-    key = convert((K, K), key0)
-    if !isequal(key0, key)
-        error(key0, " is not a valid key for type ", (K, K))
-    end
-
+    key = Interval{K}(key0[1], key0[2])
     value = convert(V, value0)
 
     ans = _setindex!(t.root, value, key)
@@ -306,15 +314,15 @@ function setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value0, key0::(Any, Any))
 end
 
 
-function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::(K, K))
+function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::Interval{K})
     i = findidx(t, key) # key index
     j = i <= length(t) - 1 && key >= t.keys[i] ? i + 1 : i # child index
     ans = _setindex!(t.children[j], value, key)
 
     if isa(ans, Bool)
         # update maxend if needed
-        if key[2] > t.maxend
-            t.maxend = key[2]
+        if key.b > t.maxend
+            t.maxend = key.b
         end
 
         return ans
@@ -339,7 +347,7 @@ function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::(K, K))
 end
 
 
-function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::(K, K))
+function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::Interval{K})
     i = max(1, findidx(t, key))
     if i <= length(t) && t.keys[i] == key
         t.values[i] = value
@@ -347,8 +355,8 @@ function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::(K, K))
     else
         insert!(t.keys, i, key)
         insert!(t.values, i, value)
-        if length(t) == 1 || key[2] > t.maxend
-            t.maxend = key[2]
+        if length(t) == 1 || key.b > t.maxend
+            t.maxend = key.b
         end
 
         # split when full
@@ -369,7 +377,7 @@ end
 
 
 function delete!{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
-    key = convert((K, K), key0)
+    key = Interval{K}(key0[1], key0[2])
     ans = _delete!(t.root, key)
 
     if ans.keyfound
@@ -401,7 +409,7 @@ end
 
 
 # Delete key from the subtree is present. Return a DeleteResult object.
-function _delete!{K, V, B}(t::InternalNode{K, V, B}, key::(K, K))
+function _delete!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
     i = findidx(t, key)
     j = i <= length(t) - 1 && key >= t.keys[i] ? i + 1 : i # child index
 
@@ -504,7 +512,7 @@ function _delete!{K, V, B}(t::InternalNode{K, V, B}, key::(K, K))
 end
 
 
-function _delete!{K, V, B}(t::LeafNode{K, V, B}, key::(K, K))
+function _delete!{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
     i = findidx(t, key)
 
     # do nothing if the key isn't present
@@ -612,11 +620,11 @@ end
 # ---------
 
 # Find index where a key belongs in internal and leaf nodes.
-function findidx{K, V, B}(t::LeafNode{K, V, B}, key::(K, K))
+function findidx{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
     return searchsortedfirst(t.keys, key)
 end
 
-function findidx{K, V, B}(t::InternalNode{K, V, B}, key::(K, K))
+function findidx{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
     i = searchsortedfirst(t.keys, key)
     return min(i, length(t.keys))
 end
@@ -625,13 +633,13 @@ function haskey(t::NullNode, key)
     return false
 end
 
-function haskey{K, V, B}(t::LeafNode{K, V, B}, key::(K, K))
+function haskey{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
     i = findidx(t, key)
     return 1 <= i <= length(t) && t.keys[i] == key
 end
 
 
-function haskey{K, V, B}(t::InternalNode{K, V, B}, key::(K, K))
+function haskey{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
     i = findidx(t, key)
     if i <= length(t) - 1 && key >= t.keys[i]
         return haskey(t.children[i+1], key)
@@ -642,11 +650,7 @@ end
 
 
 function haskey{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
-    key = convert((K, K), key0)
-    if !isequal(key0, key)
-        error(key0, " is not a valid key for type ", (K, K))
-    end
-
+    key = Interval{K}(key0[1], key0[2])
     return haskey(t.root, key)
 end
 
