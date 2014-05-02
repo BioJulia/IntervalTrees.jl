@@ -288,25 +288,43 @@ function minkey(t::LeafNode)
 end
 
 
+# Object returned by _setindex
+immutable SetIndexResult{K, V, B}
+    # true if a new key/value was inserted
+    inserted::Bool
+
+    # if the child node was split, these fields are non-nothing:
+
+    # result of a node split
+    leftnode::Union(Node{K, V, B}, Nothing)
+    rightnode::Union(Node{K, V, B}, Nothing)
+
+    # key separating leftnode and rightnode
+    median::Union(Interval{K}, Nothing)
+
+    # new maxend
+    maxend::Union(K, Nothing)
+end
+
+
 function setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value0, key0::(Any, Any))
     key = Interval{K}(key0[1], key0[2])
     value = convert(V, value0)
 
-    ans = _setindex!(t.root, value, key)
-    if isa(ans, Bool)
-        if ans
+    result = _setindex!(t.root, value, key)
+    if result.leftnode === nothing
+        if result.inserted
             t.n += 1
         end
     else
-        (leftnode, rightnode, median, maxend) = ans
         # we need a new root
         t.root = InternalNode{K, V, B}()
-        push!(t.root.keys, median)
-        push!(t.root.children, leftnode)
-        push!(t.root.children, rightnode)
-        t.root.maxend = maxend
-        leftnode.parent = t.root
-        rightnode.parent = t.root
+        push!(t.root.keys, result.median)
+        push!(t.root.children, result.leftnode)
+        push!(t.root.children, result.rightnode)
+        t.root.maxend = result.maxend
+        result.leftnode.parent = t.root
+        result.rightnode.parent = t.root
         t.n += 1
     end
 
@@ -317,31 +335,31 @@ end
 function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::Interval{K})
     i = findidx(t, key) # key index
     j = i <= length(t) - 1 && key >= t.keys[i] ? i + 1 : i # child index
-    ans = _setindex!(t.children[j], value, key)
+    result = _setindex!(t.children[j], value, key)
 
-    if isa(ans, Bool)
+    if result.leftnode === nothing
         # update maxend if needed
         if key.b > t.maxend
             t.maxend = key.b
         end
 
-        return ans
+        return result
     else
-        (leftnode, rightnode, median, maxend) = ans
-
-        insert!(t.children, j + 1, rightnode)
-        if maxend > t.maxend
-            t.maxend = maxend
+        insert!(t.children, j + 1, result.rightnode)
+        if result.maxend > t.maxend
+            t.maxend = result.maxend
         end
-        insert!(t.keys, j, median)
+        insert!(t.keys, j, result.median)
 
         # split when full
         if length(t) == B
-            (leftnode, rightnode) = split!(t)
-            return (leftnode, rightnode, minkey(rightnode),
-                    max(leftnode.maxend, rightnode.maxend))
+            leftnode, rightnode = split!(t)
+            return SetIndexResult{K, V, B}(true, leftnode, rightnode,
+                                           minkey(rightnode),
+                                           max(leftnode.maxend, rightnode.maxend))
         else
-            return true
+            return SetIndexResult{K, V, B}(true, nothing, nothing,
+                                           nothing, nothing)
         end
     end
 end
@@ -351,7 +369,7 @@ function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::Interval{K})
     i = max(1, findidx(t, key))
     if i <= length(t) && t.keys[i] == key
         t.values[i] = value
-        return false
+        return SetIndexResult{K, V, B}(false, nothing, nothing, nothing, nothing)
     else
         insert!(t.keys, i, key)
         insert!(t.values, i, value)
@@ -361,11 +379,12 @@ function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::Interval{K})
 
         # split when full
         if length(t) == B
-            (leftleaf, rightleaf) = split!(t)
-            return (leftleaf, rightleaf, rightleaf.keys[1],
-                    max(leftleaf.maxend, rightleaf.maxend))
+            leftleaf, rightleaf = split!(t)
+            return SetIndexResult{K, V, B}(true, leftleaf, rightleaf,
+                                           rightleaf.keys[1],
+                                           max(leftleaf.maxend, rightleaf.maxend))
         else
-            return true
+            return SetIndexResult{K, V, B}(true, nothing, nothing, nothing, nothing)
         end
     end
 end
