@@ -160,16 +160,61 @@ facts("Searching") do
 end
 
 
-facts("Intersecting") do
+facts("Interval Intersection") do
+    # generate n end-to-end intervals
     t = IntervalTree{Int, Int}()
-   # TODO
+    intervals = {}
+    a = 1
+    for i in 1:10000
+        b = a + rand(0:100)
+        t[(a, b)] = i
+        push!(intervals, (a, b))
+        a = b + 1
+    end
+
+    # one
+    x = rand(0:a-1)
+    @fact length(collect(intersect(t, (x, x)))) => 1
+
+    # nothing
+    @fact length(collect(intersect(t, (a, a)))) => 0
+
+    # everything
+    @fact length(collect(intersect(t, (intervals[1][1], intervals[end][2])))) => length(t)
+
+    # some random intersection queries
+    function random_intersection_query()
+        i = rand(1:length(intervals))
+        j = rand(i:length(intervals))
+        return length(collect(intersect(t, (intervals[i][1], intervals[j][2])))) == j - i + 1
+    end
+
+    @fact all([random_intersection_query() for _ in 1:1000]) => true
 end
 
 
-facts("Iteration") do
-    t = IntervalTree{Int, Int}()
-    @fact isempty(collect(t)) => true
-    # TODO
+facts("Tree Intersection") do
+    n = 10000
+    t1 = IntervalTrees.IntervalTree{Int, Int}()
+    t2 = IntervalTrees.IntervalTree{Int, Int}()
+    maxend = 1000000
+    for k in 1:n
+        # generate small-ish intervals so we avoid the worst case
+        # of O(n^2) intersecting pairs and this test runs quickly
+        u = rand(1:maxend)
+        v = rand(u:u+1000)
+        t1[(u,v)] = k
+
+        u = rand(1:maxend)
+        v = rand(u:u+1000)
+        t2[(u,v)] = k
+    end
+
+    # Since IntervalTrees has two tree intersection algorithms, I'm
+    # testing by checking that they are in agreement.
+    a = IntervalTrees.SuccessiveTreeIntersectionIterator(t1, t2)
+    b = IntervalTrees.IterativeTreeIntersectionIterator(t1, t2)
+    @fact collect(a) == collect(b) => true
 end
 
 

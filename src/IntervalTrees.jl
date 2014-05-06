@@ -3,8 +3,8 @@
 module IntervalTrees
 
 import Base: start, next, done, haskey, length, isempty, getindex, setindex!,
-             delete!, push!, pop!, resize!, insert!, splice!, copy!, size,
-             searchsortedfirst, isless
+             get, get!, delete!, push!, pop!, resize!, insert!, splice!, copy!,
+             size, searchsortedfirst, isless, intersect
 
 export IntervalTree, depth
 
@@ -172,7 +172,7 @@ end
 
 
 function next(t::IntervalBTree, state)
-    (leaf, i) = state
+    leaf, i = state
     key, value = leaf.keys[i], leaf.values[i]
 
     if i < length(leaf)
@@ -278,6 +278,31 @@ function nodemaxend{K, V, B}(t::LeafNode{K, V, B})
 end
 
 
+# Find the first leaf node in the tree
+function firstleaf(t::IntervalBTree)
+    return firstleaf(t.root)
+end
+
+
+function firstleaf(t::InternalNode)
+    return firstleaf(t.children[1])
+end
+
+
+function firstleaf(t::LeafNode)
+    return t
+end
+
+
+function nextleafkey(t::LeafNode, i::Integer)
+    if i < length(t)
+        return (t, i + 1)
+    else
+        return (t.right, 1)
+    end
+end
+
+
 # Find the minimum interval in a subtree
 function minkey(t::InternalNode)
     return minkey(t.children[1])
@@ -293,6 +318,9 @@ immutable SetIndexResult{K, V, B}
     # true if a new key/value was inserted
     inserted::Bool
 
+    # value that was inserted or found
+    value::V
+
     # if the child node was split, these fields are non-nothing:
 
     # result of a node split
@@ -307,11 +335,12 @@ immutable SetIndexResult{K, V, B}
 end
 
 
-function setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value0, key0::(Any, Any))
+function setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value0, key0::(Any, Any),
+                            noupdate::Bool=false)
     key = Interval{K}(key0[1], key0[2])
     value = convert(V, value0)
 
-    result = _setindex!(t.root, value, key)
+    result = _setindex!(t.root, value, key, noupdate)
     if result.leftnode === nothing
         if result.inserted
             t.n += 1
@@ -328,14 +357,15 @@ function setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value0, key0::(Any, Any))
         t.n += 1
     end
 
-    return value
+    return result.value
 end
 
 
-function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::Interval{K})
+function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V,
+                             key::Interval{K}, noupdate::Bool)
     i = findidx(t, key) # key index
     j = i <= length(t) - 1 && key >= t.keys[i] ? i + 1 : i # child index
-    result = _setindex!(t.children[j], value, key)
+    result = _setindex!(t.children[j], value, key, noupdate)
 
     if result.leftnode === nothing
         # update maxend if needed
@@ -354,22 +384,29 @@ function _setindex!{K, V, B}(t::InternalNode{K, V, B}, value::V, key::Interval{K
         # split when full
         if length(t) == B
             leftnode, rightnode = split!(t)
-            return SetIndexResult{K, V, B}(true, leftnode, rightnode,
+            return SetIndexResult{K, V, B}(true, result.value, leftnode, rightnode,
                                            minkey(rightnode),
                                            max(leftnode.maxend, rightnode.maxend))
         else
-            return SetIndexResult{K, V, B}(true, nothing, nothing,
+            return SetIndexResult{K, V, B}(true, result.value, nothing, nothing,
                                            nothing, nothing)
         end
     end
 end
 
 
-function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::Interval{K})
+function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::Interval{K},
+                             noupdate::Bool)
     i = max(1, findidx(t, key))
     if i <= length(t) && t.keys[i] == key
-        t.values[i] = value
-        return SetIndexResult{K, V, B}(false, nothing, nothing, nothing, nothing)
+        if noupdate
+            return SetIndexResult{K, V, B}(false, t.values[i], nothing, nothing,
+                                           nothing, nothing)
+        else
+            t.values[i] = value
+            return SetIndexResult{K, V, B}(false, value, nothing, nothing,
+                                           nothing, nothing)
+        end
     else
         insert!(t.keys, i, key)
         insert!(t.values, i, value)
@@ -380,11 +417,12 @@ function _setindex!{K, V, B}(t::LeafNode{K, V, B}, value::V, key::Interval{K})
         # split when full
         if length(t) == B
             leftleaf, rightleaf = split!(t)
-            return SetIndexResult{K, V, B}(true, leftleaf, rightleaf,
+            return SetIndexResult{K, V, B}(true, value, leftleaf, rightleaf,
                                            rightleaf.keys[1],
                                            max(leftleaf.maxend, rightleaf.maxend))
         else
-            return SetIndexResult{K, V, B}(true, nothing, nothing, nothing, nothing)
+            return SetIndexResult{K, V, B}(true, value, nothing, nothing,
+                                           nothing, nothing)
         end
     end
 end
@@ -674,16 +712,281 @@ function haskey{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
 end
 
 
+function get!{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any), default)
+    return setindex!(t, default, key0, true)
+end
+
+
+function get{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any), default)
+     # TODO
+end
+
+
+function getindex{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
+    # TODO
+end
+
+
+# Intersection
+# ------------
+
+# There are two ways we can tackle intersection: traversal (search the tree for
+# intervals that intersect) and iteration (iterate through the tree's intervals
+# in sorted order).
+#
+# Traversal is roughly O(log(n)) while iteration is roughly O(n). Obviously
+# if we are doing a single intersection, we would choose traversal, but when
+# intersecting two trees it becomes more interesting.
+#
+# If the second tree is of size m, then intersection by traversal is
+# O(min(m * log(n), n * log(m))) while interesction by iteration is O(m + n).
+# When m and n are both large, it becomes more efficient to intersect by
+# iteration, but deciding when requires some heuristics.
+#
+
+# Return true iff two key1 and key2 intersect.
+function intersects{K}(key1::Interval{K}, key2::Interval{K})
+    return key1.a <= key2.b && key2.a <= key1.b
+end
+
+
+# Find the first interval in the tree that intersects the query and return
+# as a (leafnode, index) pair, indicating that leafnode.keys[index] intersects.
+# If no intersection is found, index is 0 and leafnode is the last node
+# searched.
+function firstintersection{K, V, B}(t::IntervalBTree{K, V, B}, query::Interval{K})
+    return firstintersection(t.root, query)
+end
+
+
+function firstintersection{K, V, B}(t::InternalNode{K, V, B}, query::Interval{K})
+    if isempty(t) || t.maxend < query.a
+        return (t, 0)
+    end
+
+    for (i, child) in enumerate(t.children)
+        if child.maxend >= query.a && (i == 1 || t.keys[i-1].a <= query.b)
+            s, j = firstintersection(child, query)
+            if j > 0
+                return (s, j)
+            end
+        elseif child.keys[1].a > query.b
+            break
+        end
+    end
+
+    return (t, 0)
+end
+
+
+function firstintersection{K, V, B}(t::LeafNode{K, V, B}, query::Interval{K})
+    if isempty(t) || t.maxend < query.a
+        return (t, 0)
+    end
+
+    for i in 1:length(t)
+        if intersects(t.keys[i], query)
+            return (t, i)
+        elseif query.b < t.keys[i].a
+            break
+        end
+    end
+
+    return (t, 0)
+end
+
+
+# If query intersects node.keys[i], return the next intersecting key as
+# a (leafnode, index) pair.
+function nextintersection{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
+                                   query::Interval{K})
+    u = t
+    j = i + 1
+    while true
+        while j <= length(u)
+            if intersects(u.keys[j], query)
+                return (u, j)
+            end
+            j += 1
+        end
+        j = 1
+        u = u.right
+        if isa(u, NullNode) || u.keys[1].a > query.b
+            break
+        end
+    end
+
+    return (u, 0)
+end
+
+
+immutable IntervalIntersectionIterator{K, V, B}
+    t::IntervalBTree{K, V, B}
+    query::Interval{K}
+end
+
+
+function intersect{K, V, B}(t::IntervalBTree{K, V, B}, query0::(Any, Any))
+    query = Interval{K}(query0[1], query0[2])
+    return intersect(t, query)
+end
+
+
+function intersect{K, V, B}(t::IntervalBTree{K, V, B}, query::Interval{K})
+    return IntervalIntersectionIterator(t, query)
+end
+
+
+function start{K, V, B}(it::IntervalIntersectionIterator{K, V, B})
+    return firstintersection(it.t, it.query)
+end
+
+
+function next{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, state)
+    node, index = state
+    nextitem = ((node.keys[index].a, node.keys[index].b), node.values[index])
+    return (nextitem, nextintersection(node, index, it.query))
+end
+
+
+function done(it::IntervalIntersectionIterator, state)
+    node, index = state
+    return index == 0
+end
+
+
+# Iterate through the intersection of two trees by iterating through both in
+# order.
+immutable IterativeTreeIntersectionIterator{K, V, B}
+    t1::IntervalBTree{K, V, B}
+    t2::IntervalBTree{K, V, B}
+end
+
+
+immutable IterativeTreeIntersectionIteratorState{K, V, B}
+    u::Node{K, V, B}
+    v::Node{K, V, B}
+    w::Node{K, V, B}
+    i::Int
+    j::Int
+end
+
+
+function start{K, V, B}(it::IterativeTreeIntersectionIterator{K, V, B})
+    # Notation notes. We proceed by finding all the the intervals
+    # in t2 that intersect u.keys[i], before proceeding to the next
+    # key in t1.
+    #
+    # We use v to keep track of the first leaf node in t2 that might contain an
+    # intersecting interval, # and with (w, j) the current intersecting entry in
+    # t2. We need to hang onto v since we will need to jump back when the
+    # entry in t1 gets incremented.
+    #
+    # The thing to keep in mind is that this is just like the merge operation in
+    # mergesort, except that some backtracking is needed since intersection
+    # isn't as simple as ordering.
+    u, v = firstleaf(it.t1), firstleaf(it.t2)
+    w = v
+    i, j = 1, 1
+
+    return nextintersection(it,
+        IterativeTreeIntersectionIteratorState{K, V, B}(u, v, w, i, j))
+end
+
+
+# This is fantastically slow. I get that these intervals are all over the place.
+
+function nextintersection{K, V, B}(it::IterativeTreeIntersectionIterator{K, V, B},
+                                   state::IterativeTreeIntersectionIteratorState{K, V, B})
+    u, v, w, i, j = state.u, state.v, state.w, state.i, state.j
+    while !isa(u, NullNode) && !isa(v, NullNode)
+        if isa(w, NullNode)
+            u, i = nextleafkey(u, i)
+            w, j = v, 1
+        elseif u.maxend < v.keys[1].a
+            u = u.right
+            i = 1
+        elseif v.maxend < u.keys[i].a
+            v, w = v.right, v.right
+            j = 1
+        elseif intersects(u.keys[i], w.keys[j])
+            return IterativeTreeIntersectionIteratorState{K, V, B}(u, v, w, i, j)
+        elseif u.keys[i] < w.keys[j]
+            u, i = nextleafkey(u, i)
+            w, j = v, 1
+        elseif u.keys[i] >= w.keys[j]
+            w, j = nextleafkey(w, j)
+        else
+            error("Malformed IntervalTree")
+        end
+    end
+
+    return IterativeTreeIntersectionIteratorState{K, V, B}(u, v, w, i, j)
+end
+
+
+function next{K, V, B}(it::IterativeTreeIntersectionIterator{K, V, B}, state)
+    u, v, w, i, j = state.u, state.v, state.w, state.i, state.j
+    value = (((u.keys[i].a, u.keys[i].b), u.values[i]),
+             ((w.keys[j].a, w.keys[j].b), w.values[j]))
+    w, j = nextleafkey(w, j)
+    nextstate = nextintersection(it,
+        IterativeTreeIntersectionIteratorState{K, V, B}(u, v, w, i, j))
+    return (value, nextstate)
+end
+
+
+function done(it::IterativeTreeIntersectionIterator, state)
+    return isa(state.u, NullNode) || isa(state.v, NullNode)
+end
+
+
+immutable SuccessiveTreeIntersectionIterator{K, V, B}
+    t1::IntervalBTree{K, V, B}
+    t2::IntervalBTree{K, V, B}
+end
+
+
+function start{K, V, B}(it::SuccessiveTreeIntersectionIterator{K, V, B})
+    t1_state = start(it.t1)
+    while !done(it.t1, t1_state)
+        t1_value, t1_state = next(it.t1, t1_state)
+        intersect_it = intersect(it.t2, t1_value[1])
+        intersect_state = start(intersect_it)
+        if !done(intersect_it, intersect_state)
+            return (t1_state, t1_value, intersect_it, intersect_state)
+        end
+    end
+
+    return (t1_state, nothing, nothing, nothing)
+end
+
+
+function next{K, V, B}(it::SuccessiveTreeIntersectionIterator{K, V, B}, state)
+    t1_state, t1_value, intersect_it, intersect_state = state
+    intersect_value, intersect_state = next(intersect_it, intersect_state)
+    return_value = (t1_value, intersect_value)
+    while done(intersect_it, intersect_state) && !done(it.t1, t1_state)
+        t1_value, t1_state = next(it.t1, t1_state)
+        intersect_it = intersect(it.t2, t1_value[1])
+        intersect_state = start(intersect_it)
+        intersect_state
+    end
+
+    return (return_value, (t1_state, t1_value, intersect_it, intersect_state))
+end
+
+
+function done(it::SuccessiveTreeIntersectionIterator, state)
+    t1_state, t1_value, intersect_it, intersect_state = state
+    return done(intersect_it, intersect_state) && done(it.t1, t1_state)
+end
+
+
 # TODO: get
 
 
 # TODO: getindex
-
-
-# TODO: point intersection
-
-
-# TODO: interval intersection
 
 
 # Diagnostics
