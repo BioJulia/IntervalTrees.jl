@@ -718,12 +718,54 @@ end
 
 
 function get{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any), default)
-     # TODO
+    key = Interval{K}(key0[1], key0[2])
+    return _get(t.root, key, default)
+end
+
+
+function _get{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K}, default)
+    i = findidx(t, key)
+    if 1 <= length(t) - 1 && key >= t.keys[i]
+        return _get(t.children[i+1], key, default)
+    else
+        return _get(t.children[i], key, default)
+    end
+end
+
+
+function _get{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K}, default)
+    i = findidx(t, key)
+    if 1 <= i <= length(t) && t.keys[i] == key
+        return t.values[i]
+    else
+        return default
+    end
 end
 
 
 function getindex{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
-    # TODO
+    key = Interval{K}(key0[1], key0[2])
+    return _getindex(t.root, key)
+end
+
+
+function _getindex{K, V, b}(t::InternalNode{K, V, B}, key::Interval{K})
+    i = findidx(t, key)
+    if 1 <= length(t) - 1 && key >= t.keys[i]
+        return _getindex(t.children[i+1], key)
+    else
+        return _getindex(t.children[i], key)
+    end
+end
+
+
+function _getindex{K, V, b}(t::LeafNode{K, V, B}, key::Interval{K})
+    i = findidx(t, key)
+    if 1 <= i <= length(t) && t.keys[i] == key
+        return t.values[i]
+    else
+        error(KeyError((key.a, key.b)))
+    end
 end
 
 
@@ -826,6 +868,8 @@ immutable IntervalIntersectionIterator{K, V, B}
 end
 
 
+# Intersect an interval tree t with a single interval, returning an iterator
+# over the intersecting (key, value) pairs in t.
 function intersect{K, V, B}(t::IntervalBTree{K, V, B}, query0::(Any, Any))
     query = Interval{K}(query0[1], query0[2])
     return intersect(t, query)
@@ -941,6 +985,8 @@ function done(it::IterativeTreeIntersectionIterator, state)
 end
 
 
+# Iterate through the intersection of two interval trees by doing single
+# interval queries against t2 for every key in t1.
 immutable SuccessiveTreeIntersectionIterator{K, V, B}
     t1::IntervalBTree{K, V, B}
     t2::IntervalBTree{K, V, B}
@@ -983,10 +1029,30 @@ function done(it::SuccessiveTreeIntersectionIterator, state)
 end
 
 
-# TODO: get
+# Intersect two interval trees, returning an iterator yielding values of the
+# form:
+#   ((key1, value1), (key2, value2))
+#
+# Where key1 is from the first tree and key2 from the second, and they
+# intersect.
+function intersect{K, V, B}(t1::IntervalBTree{K, V, B},
+                            t2::IntervalBTree{K, V, B})
+    # We decide heuristically which intersection algorithm to use.
+    n = length(t1)
+    m = length(t2)
 
+    cost1 = n + m
+    cost2 = n * log(1 + m)
+    cost3 = n * log(1 + n)
+    if cost1 <= cost2 <= cost3
+        return IterativeTreeIntersectionIterator(t1, t2)
+    elseif cost2 <= cost3
+        return SuccessiveTreeIntersectionIterator(t1, t2)
+    else
+        return SuccessiveTreeIntersectionIterator(t2, t1)
+    end
+end
 
-# TODO: getindex
 
 
 # Diagnostics
