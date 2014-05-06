@@ -5,17 +5,17 @@
 
 ## API
 
-IntervalTrees exports one type: `IntervalTree{K, V}`.  It implement a
+IntervalTrees exports one type: `IntervalTree{K, V}`.  It implements an
 associative container mapping `(K, K)` pairs to to values of type `V`.  `K` may
 be any ordered type, but only pairs `(a, b)` where `a ≤ b` can be stored.
 
-Intervals in this packages are always treated as end-inclusive, similar to the
+Intervals in this package are always treated as end-inclusive, similar to the
 Julia `Range` type.
 
 ### Types
 
-`IntervalTrees` exports an `IntervalTree{K, V}`, paramaterized by a key type `K`
-and a value type `V`. An empty `IntervalTree` is initialized simple as:
+`IntervalTrees` exports an `IntervalTree{K, V}`, parameterized by a key type `K`
+and a value type `V`. An empty `IntervalTree` is initialized simply as:
 
 ```julia
 xs = IntervalTree{Int, Int}()
@@ -56,7 +56,7 @@ delete!(xs, (1,100))
 
 ### Intersection
 
-The primary thing an `IntervalTree` over a `Dict` is the ability to efficiently
+The primary thing an `IntervalTree` offers over a `Dict` is the ability to efficiently
 find intersections. `IntervalTrees` supports searching and iterating over
 intersections between two trees or between a tree and a single interval.
 
@@ -73,23 +73,23 @@ value1)` is in `t1` and `(key2, value2)` is in `t2`.
 ## Algorithms
 
 Multiple data structures are refered to as "interval trees". What's implemented
-here is the data structure described in the Cormen, et al "Algorithms" book, or
+here is the data structure described in the [Cormen, et al. "Algorithms" book](https://en.wikipedia.org/wiki/Introduction_to_Algorithms), or
 what's refered to as an [augmented
 tree](http://en.wikipedia.org/wiki/Interval_tree#Augmented_tree) in the
-wikipedia article. This sort of data structure is just an balanced serach tree
+wikipedia article. This sort of data structure is just an balanced search tree
 augmented with a field to keep track of the maximum interval end point in that
-nodes subtree.
+node's subtree.
 
 Many operations over two or more sets of intervals can be most efficiently
 implemented by jointly iterating over the sets in order. For example, finding
 all the intersecting intervals in two sets S and T can be implemented similarly
 to the merge function in mergesort in O(n+m) time.
 
-Thus a general purpose-data structure should be optimized for fast in-order
+Thus a general purpose data structure should be optimized for fast in-order
 iteration while efficiently supporting other operations like insertion,
 deletion, and single intersection tests. A B+-tree is nicely suited to the task.
 Since all the intervals and values are stored in contiguous memory in the leaf
-nodes, and the leaf-nodes augmented with sibling pointers, in-order traversal is
+nodes, and the leaf nodes augmented with sibling pointers, in-order traversal is
 exceedingly efficient compared to other balanced search trees, while other
 operations are comparable in performance.
 
