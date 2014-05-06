@@ -749,7 +749,7 @@ function getindex{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
 end
 
 
-function _getindex{K, V, b}(t::InternalNode{K, V, B}, key::Interval{K})
+function _getindex{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
     i = findidx(t, key)
     if 1 <= length(t) - 1 && key >= t.keys[i]
         return _getindex(t.children[i+1], key)
@@ -759,7 +759,7 @@ function _getindex{K, V, b}(t::InternalNode{K, V, B}, key::Interval{K})
 end
 
 
-function _getindex{K, V, b}(t::LeafNode{K, V, B}, key::Interval{K})
+function _getindex{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
     i = findidx(t, key)
     if 1 <= i <= length(t) && t.keys[i] == key
         return t.values[i]
