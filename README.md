@@ -1,7 +1,7 @@
 
 # IntervalTrees
 
-[![Build Status](https://api.travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/BioJulia/IntervalTrees.jl)
+[![Build Status](https://api.travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/BioJulia/IntervalTrees.jl) [![Coverage Status](https://coveralls.io/repos/BioJulia/IntervalTrees.jl/badge.png?branch=master)](https://coveralls.io/r/BioJulia/IntervalTrees.jl?branch=master)
 
 ## API
 
