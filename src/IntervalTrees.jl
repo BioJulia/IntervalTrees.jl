@@ -160,11 +160,7 @@ function start{K, V, B}(t::IntervalBTree{K, V, B})
     # traverse to the first leaf node
     node = t.root
     while !isa(node, LeafNode)
-        if !isempty(node)
-            node = node.children[1]
-        else
-            return (NullNode{K, V, B}(), 1)
-        end
+        node = node.children[1]
     end
 
     return (node, 1)
@@ -447,7 +443,7 @@ function delete!{K, V, B}(t::IntervalBTree{K, V, B}, key0::(Any, Any))
         t.root.parent = NullNode{K, V, B}()
     end
 
-    return
+    return t
 end
 
 
@@ -501,11 +497,12 @@ function _delete!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
         end
     elseif ans.fate == :delete || ans.fate == :deleteright
         deleteidx = ans.fate == :delete ? j : j + 1
-        if deleteidx == 1
-            splice!(t.keys, 1)
-        else
-            splice!(t.keys, deleteidx - 1)
-        end
+
+        # deleteidx == 1 would only happen if we had only one child, but if
+        # that were the case it would have been promoted.
+        @assert deleteidx > 1
+
+        splice!(t.keys, deleteidx - 1)
         splice!(t.children, deleteidx)
         t.maxend = nodemaxend(t)
 
@@ -602,7 +599,7 @@ function _delete!{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
     if !isnull(t.right) && t.right.parent == t.parent && length(t.right) > minsize
         push!(t.keys, splice!(t.right.keys, 1))
         push!(t.values, splice!(t.right.values, 1))
-        t.maxend = max(t.maxend, t.keys[end][2])
+        t.maxend = max(t.maxend, t.keys[end].b)
         t.right.maxend = nodemaxend(t.right)
 
         return DeleteResult(true, :updateright)
@@ -612,7 +609,7 @@ function _delete!{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
     if !isnull(t.left) && t.left.parent == t.parent && length(t.left) > minsize
         insert!(t.keys, 1, pop!(t.left.keys))
         insert!(t.values, 1, pop!(t.left.values))
-        t.maxend = max(t.maxend, t.keys[1][2])
+        t.maxend = max(t.maxend, t.keys[1].b)
         t.left.maxend = nodemaxend(t.left)
 
         return DeleteResult(true, :updateleft)
@@ -663,8 +660,8 @@ function merge!{K, V, B}(left::InternalNode{K, V, B}, right::InternalNode{K, V, 
     resize!(left.keys, leftlen + rightlen - 1)
     resize!(left.children, leftlen + rightlen)
     copy!(left.children, leftlen+1, right.children, 1, length(right.children))
-    for child in left.children[leftlen+1:end]
-        child.parent = left
+    for i in leftlen+1:length(left.children)
+        left.children[i].parent = left
     end
     left.keys[leftlen] = minkey(left.children[leftlen+1])
     copy!(left.keys, leftlen+1, right.keys, 1, length(right.keys))

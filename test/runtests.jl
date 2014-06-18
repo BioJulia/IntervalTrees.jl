@@ -135,7 +135,7 @@ function validsiblings(t::IntervalTrees.IntervalBTree)
 end
 
 
-facts("Searching") do
+facts("Search") do
     t = IntervalTree{Int, Int}()
     @fact haskey(t, (1,2)) => false
 
@@ -150,13 +150,24 @@ facts("Searching") do
 
         shuffle!(intervals)
         @fact all([haskey(t, interval) for interval in intervals]) => true
+        @fact all([get!(t, interval, -1) != -1 for interval in intervals]) => true
     end
 
     context("true negatives") do
         @fact all([!haskey(t, interval)
                    for interval in [randinterval(maxend+1, 2 * maxend)
                                     for i in 1:n]]) => true
+        @fact all([get!(t, interval, -1) == -1
+                   for interval in [randinterval(maxend+1, 2 * maxend)
+                                    for i in 1:n]]) => true
     end
+end
+
+
+facts("Iteration") do
+    t = IntervalTree{Int, Int}()
+
+    @fact isempty([x for x in t]) => true
 end
 
 
@@ -257,9 +268,29 @@ facts("Insertion") do
 end
 
 
+facts("Updates") do
+    t = IntervalTrees.IntervalTree{Int, Int}()
+    n = 100000
+    ks = [randinterval() for _ in 1:n]
+    for (v, k) in enumerate(ks)
+        t[k] = v
+    end
+
+    shuffle!(ks)
+    for (v, k) in enumerate(ks)
+        t[k] = v
+    end
+
+    @fact issorted(collect(keys(t))) => true
+    @fact validkeys(t) => true
+    @fact validparents(t) => true
+    @fact validsiblings(t) => true
+end
+
+
 facts("Deletion") do
     t = IntervalTrees.IntervalTree{Int, Int}()
-    n = 30
+    n = 10000
 
     # insert n random intervals
     intervals = [randinterval() for _ in 1:n]
@@ -267,6 +298,9 @@ facts("Deletion") do
         t[interval] = i
     end
     shuffle!(intervals)
+
+    # delete non-existant is a nop
+    @fact delete!(t, (-1, -1)).n => n
 
     # delete one
     interval = pop!(intervals)
@@ -290,6 +324,32 @@ facts("Deletion") do
     @fact all(map(interval -> haskey(t, interval), intervals)) => true
 
     # delete the rest
+    for interval in intervals
+        delete!(t, interval)
+    end
+    @fact isempty(t) => true
+    @fact validkeys(t) => true
+    @fact validparents(t) => true
+    @fact validsiblings(t) => true
+
+    # delete left-to-right
+    for (i, interval) in enumerate(intervals)
+        t[interval] = i
+    end
+    sort!(intervals)
+    for interval in intervals
+        delete!(t, interval)
+    end
+    @fact isempty(t) => true
+    @fact validkeys(t) => true
+    @fact validparents(t) => true
+    @fact validsiblings(t) => true
+
+    # delete right-to-left
+    for (i, interval) in enumerate(intervals)
+        t[interval] = i
+    end
+    reverse!(intervals)
     for interval in intervals
         delete!(t, interval)
     end
