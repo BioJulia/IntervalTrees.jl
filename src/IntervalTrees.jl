@@ -678,10 +678,16 @@ end
 
 # Find index where a key belongs in internal and leaf nodes.
 function findidx{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
+    if isempty(t.keys)
+        return 0
+    end
     return searchsortedfirst(t.keys, key)
 end
 
 function findidx{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
+    if isempty(t.keys)
+        return 0
+    end
     i = searchsortedfirst(t.keys, key)
     return min(i, length(t.keys))
 end
