@@ -4,7 +4,7 @@ module TestIntervalTrees
 
 using FactCheck
 using IntervalTrees
-import IntervalTrees.Slice
+import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
 
 
 # Generating random intervals
@@ -227,6 +227,14 @@ facts("Tree Intersection") do
     a = IntervalTrees.SuccessiveTreeIntersectionIterator(t1, t2)
     b = IntervalTrees.IterativeTreeIntersectionIterator(t1, t2)
     @fact collect(a) == collect(b) => true
+
+    # handle a particular intersection case that may not otherwise get hit
+    t1 = IntervalTree{Int, Int}()
+    t1[(1, 2)] = 1
+    t2 = IntervalTree{Int, Int}()
+    t2[(1001, 1002)] = 2
+    @fact isempty(collect(IntervalTrees.IterativeTreeIntersectionIterator(t1, t2))) => true
+    @fact isempty(collect(IntervalTrees.SuccessiveTreeIntersectionIterator(t1, t2))) => true
 end
 
 
@@ -290,7 +298,8 @@ end
 
 
 facts("Deletion") do
-    t = IntervalTrees.IntervalTree{Int, Int}()
+    B = 64
+    t = IntervalTrees.IntervalBTree{Int, Int, B}()
     n = 10000
 
     # insert n random intervals
@@ -334,6 +343,7 @@ facts("Deletion") do
     @fact validsiblings(t) => true
 
     # delete left-to-right
+    shuffle!(intervals)
     for (i, interval) in enumerate(intervals)
         t[interval] = i
     end
@@ -347,12 +357,49 @@ facts("Deletion") do
     @fact validsiblings(t) => true
 
     # delete right-to-left
+    shuffle!(intervals)
     for (i, interval) in enumerate(intervals)
         t[interval] = i
     end
     reverse!(intervals)
     for interval in intervals
         delete!(t, interval)
+    end
+    @fact isempty(t) => true
+    @fact validkeys(t) => true
+    @fact validparents(t) => true
+    @fact validsiblings(t) => true
+
+    # delete from the middle
+    shuffle!(intervals)
+    for (i, interval) in enumerate(intervals)
+        t[interval] = i
+    end
+    mid = div(length(intervals), 2)
+    for i in mid+1:length(intervals)
+        delete!(t, intervals[i])
+    end
+    for i in mid:-1:1
+        delete!(t, intervals[i])
+    end
+    @fact isempty(t) => true
+    @fact validkeys(t) => true
+    @fact validparents(t) => true
+    @fact validsiblings(t) => true
+
+    # contrive a special case: merge with the left when we have a non-null
+    # right
+    t = IntervalBTree{Int, Int, 4}()
+    for i in 1:24
+        t[(i, i)] = i
+    end
+    @fact isa(t.root, InternalNode) => true
+    @fact length(t.root.children) => 3
+    @fact length(t.root.children[2].children) => 2
+    delete!(t, (15, 15))
+    keys_to_delete = collect(keys(t))
+    for key in keys_to_delete
+        delete!(t, key)
     end
     @fact isempty(t) => true
     @fact validkeys(t) => true
@@ -366,8 +413,10 @@ facts("Slices") do
 
     @fact_throws xs[0]
     @fact_throws xs[11]
+    @fact_throws xs[0] = 1
+    @fact_throws xs[11] = 1
     @fact_throws pop!(xs)
-    @fact_throws insert!(xs, 0)
+    @fact_throws insert!(xs, 0, 1)
 
     for x in 1:10
         push!(xs, x)
@@ -380,6 +429,35 @@ facts("Slices") do
     @fact_throws splice!(xs, 11)
 end
 
+
+# Abuse low-level functions to test cases that wouldn't otherwise occur
+facts("Low Level") do
+    # findidx should return 0 when called on an empty node
+    x = Interval{Int}(1, 1)
+    node = InternalNode{Int, Int, 32}()
+    @fact IntervalTrees.findidx(node, x) => 0
+    node = LeafNode{Int, Int, 32}()
+    @fact IntervalTrees.findidx(node, x) => 0
+    @fact IntervalTrees.firstintersection(node, x) => (node, 0)
+
+    # test that delete! still works on a contrived tree with one internal and
+    # one leaf node
+    t = IntervalBTree{Int, Int, 32}()
+    t.root = InternalNode{Int, Int, 32}()
+    push!(t.root.children, LeafNode{Int, Int, 32}())
+    push!(t.root.keys, x)
+    push!(t.root.children[1].keys, x)
+    push!(t.root.children[1].values, 1)
+    delete!(t, (1,1))
+    @fact isa(t.root, LeafNode) => true
+
+    # test that the right thing happens if you delete the last key in a non-root
+    # leaf node (which can't actually happen)
+    node = LeafNode{Int, Int, 32}()
+    push!(node.keys, x)
+    push!(node.values, 1)
+    @fact IntervalTrees.findidx(node, x) => 1
+end
 
 end
 

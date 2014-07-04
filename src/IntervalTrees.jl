@@ -472,10 +472,7 @@ function _delete!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
         return DeleteResult(false, :none)
     end
 
-    if ans.fate == :none
-        t.maxend = nodemaxend(t)
-        return DeleteResult(true, :none)
-    elseif ans.fate == :updateleft
+    if ans.fate == :updateleft
         t.maxend = nodemaxend(t)
         if j > 1
             t.keys[j - 1] = minkey(t.children[j]);
@@ -560,9 +557,10 @@ function _delete!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
 
         # Allow the root node to be underfull
         return DeleteResult(true, :none)
+    else
+        t.maxend = nodemaxend(t)
+        return DeleteResult(true, :none)
     end
-
-    error("Undefined child fate encountered.")
 end
 
 
@@ -589,10 +587,6 @@ function _delete!{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
     # not underfull
     if length(t) >= minsize
         return DeleteResult(true, i == 1 ? :updateleft : :none)
-    end
-
-    if isempty(t)
-        return DeleteResult(true, :delete)
     end
 
     # borrow right
@@ -941,8 +935,6 @@ function start{K, V, B}(it::IterativeTreeIntersectionIterator{K, V, B})
 end
 
 
-# This is fantastically slow. I get that these intervals are all over the place.
-
 function nextintersection{K, V, B}(it::IterativeTreeIntersectionIterator{K, V, B},
                                    state::IterativeTreeIntersectionIteratorState{K, V, B})
     u, v, w, i, j = state.u, state.v, state.w, state.i, state.j
@@ -963,8 +955,6 @@ function nextintersection{K, V, B}(it::IterativeTreeIntersectionIterator{K, V, B
             w, j = v, 1
         elseif u.keys[i] >= w.keys[j]
             w, j = nextleafkey(w, j)
-        else
-            error("Malformed IntervalTree")
         end
     end
 
@@ -1028,7 +1018,8 @@ end
 
 function done(it::SuccessiveTreeIntersectionIterator, state)
     t1_state, t1_value, intersect_it, intersect_state = state
-    return done(intersect_it, intersect_state) && done(it.t1, t1_state)
+    return intersect_it === nothing ||
+        (done(intersect_it, intersect_state) && done(it.t1, t1_state))
 end
 
 
