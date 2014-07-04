@@ -459,6 +459,8 @@ facts("Low Level") do
     @fact IntervalTrees.findidx(node, x) => 1
 end
 
+exitstatus()
+
 end
 
 
