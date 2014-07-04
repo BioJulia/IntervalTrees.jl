@@ -66,9 +66,6 @@ end
 
 function insert!{T, N}(s::Slice{T, N}, i::Integer, value)
     if s.n < N && 1 <= i <= s.n + 1
-        #=for j in s.n:-1:i=#
-            #=@inbounds s.data[j+1] = s.data[j]=#
-        #=end=#
         @inbounds s.data[i+1:s.n+1] = s.data[i:s.n]
         @inbounds s.data[i] = value
         s.n += 1

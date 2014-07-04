@@ -4,6 +4,7 @@ module TestIntervalTrees
 
 using FactCheck
 using IntervalTrees
+import IntervalTrees.Slice
 
 
 # Generating random intervals
@@ -357,6 +358,26 @@ facts("Deletion") do
     @fact validkeys(t) => true
     @fact validparents(t) => true
     @fact validsiblings(t) => true
+end
+
+
+facts("Slices") do
+    xs = Slice{Int, 10}()
+
+    @fact_throws xs[0]
+    @fact_throws xs[11]
+    @fact_throws pop!(xs)
+    @fact_throws insert!(xs, 0)
+
+    for x in 1:10
+        push!(xs, x)
+    end
+
+    @fact_throws push!(xs, 11)
+    @fact_throws insert!(xs, 11)
+    @fact_throws resize!(xs, 11)
+    @fact_throws splice!(xs, 0)
+    @fact_throws splice!(xs, 11)
 end
 
 
