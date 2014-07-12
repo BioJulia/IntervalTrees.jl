@@ -187,12 +187,17 @@ facts("Interval Intersection") do
     # one
     x = rand(0:a-1)
     @fact length(collect(intersect(t, (x, x)))) => 1
+    @fact hasintersection(t, x) => true
 
     # nothing
     @fact length(collect(intersect(t, (a, a)))) => 0
+    @fact hasintersection(t, a) => false
 
     # everything
     @fact length(collect(intersect(t, (intervals[1][1], intervals[end][2])))) => length(t)
+
+    @fact all([hasintersection(t, interval[1]) for interval in intervals]) => true
+    @fact all([hasintersection(t, interval[end]) for interval in intervals]) => true
 
     # some random intersection queries
     function random_intersection_query()
@@ -202,6 +207,30 @@ facts("Interval Intersection") do
     end
 
     @fact all([random_intersection_query() for _ in 1:1000]) => true
+
+    # intervals separated by 1
+    t = IntervalTree{Int, Int}()
+
+    @fact hasintersection(t, 1) => false
+
+    intervals = {}
+    gaps = {}
+    a = 1
+    for i in 1:10000
+        b = a + rand(0:100)
+        if iseven(b)
+            t[(a, b)] = i
+            push!(intervals, (a, b))
+        else
+            push!(gaps, (a, b))
+        end
+        a = b + 1
+    end
+
+    @fact all([hasintersection(t, interval[1]) for interval in intervals]) => true
+    @fact all([hasintersection(t, interval[end]) for interval in intervals]) => true
+    @fact all([hasintersection(t, interval[1]) for interval in gaps]) => false
+    @fact all([hasintersection(t, interval[end]) for interval in gaps]) => false
 end
 
 
@@ -300,7 +329,7 @@ end
 facts("Deletion") do
     B = 64
     t = IntervalTrees.IntervalBTree{Int, Int, B}()
-    n = 10000
+    n = 100000
 
     # insert n random intervals
     intervals = [randinterval() for _ in 1:n]

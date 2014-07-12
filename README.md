@@ -69,6 +69,9 @@ pair of intersecting entries `((key1, value1), (key2, value2))`, where `(key1,
 value1)` is in `t1` and `(key2, value2)` is in `t2`.
 
 
+**hasintersection(t::IntervalTree, position)**: Return true if `position`
+intersects some interval in `t`.
+
 
 ## Algorithms
 

@@ -6,7 +6,7 @@ import Base: start, next, done, haskey, length, isempty, getindex, setindex!,
              get, get!, delete!, push!, pop!, resize!, insert!, splice!, copy!,
              size, searchsortedfirst, isless, intersect
 
-export IntervalTree, depth
+export IntervalTree, depth, hasintersection
 
 include("slice.jl")
 
@@ -787,6 +787,49 @@ end
 function intersects{K}(key1::Interval{K}, key2::Interval{K})
     return key1.a <= key2.b && key2.a <= key1.b
 end
+
+
+# Return true if the tree has an intersection with the given position
+function hasintersection{K, V, B}(t::IntervalBTree{K, V, B}, query)
+    return hasintersection(t.root, convert(K, query))
+end
+
+
+function hasintersection{K, V, B}(t::InternalNode{K, V, B}, query::K)
+    if isempty(t) || t.maxend < query
+        return false
+    end
+
+    for (i, child) in enumerate(t.children)
+        if child.maxend >= query && (i == 1 || t.keys[i-1].a <= query)
+            if hasintersection(child, query)
+                return true
+            end
+        elseif child.keys[1].a > query
+            break
+        end
+    end
+
+    return false
+end
+
+
+function hasintersection{K, V, B}(t::LeafNode{K, V, B}, query::K)
+    if isempty(t) || t.maxend < query
+        return false
+    end
+
+    for i in 1:length(t)
+        if t.keys[i].a <= query <= t.keys[i].b
+            return true
+        elseif query < t.keys[i].a
+            break
+        end
+    end
+
+    return false
+end
+
 
 
 # Find the first interval in the tree that intersects the query and return
