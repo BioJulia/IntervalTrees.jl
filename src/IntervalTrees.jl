@@ -4,7 +4,7 @@ module IntervalTrees
 
 import Base: start, next, done, haskey, length, isempty, getindex, setindex!,
              get, get!, delete!, push!, pop!, resize!, insert!, splice!, copy!,
-             size, searchsortedfirst, isless, intersect
+             size, searchsortedfirst, isless, intersect, keys, values
 
 export IntervalTree, depth, hasintersection
 
@@ -151,9 +151,20 @@ function isempty(t::LeafNode)
 end
 
 
+function isempty(t::NullNode)
+    return true
+end
+
+
 
 # Iterating
 # ---------
+
+
+immutable IntervalBTreeIteratorState{K, V, B}
+    leaf::Union(NullNode{K, V, B}, LeafNode{K, V, B})
+    i::Int
+end
 
 
 function start{K, V, B}(t::IntervalBTree{K, V, B})
@@ -163,25 +174,113 @@ function start{K, V, B}(t::IntervalBTree{K, V, B})
         node = node.children[1]
     end
 
-    return (node, 1)
+    return IntervalBTreeIteratorState(node, 1)
 end
 
 
-function next(t::IntervalBTree, state)
-    leaf, i = state
-    key, value = leaf.keys[i], leaf.values[i]
+function next{K, V, B}(t::IntervalBTree{K, V, B},
+                       state::IntervalBTreeIteratorState{K, V, B})
+    key, value = state.leaf.keys[state.i], state.leaf.values[state.i]
 
-    if i < length(leaf)
-        return (((key.a, key.b), value), (leaf, i + 1))
+    if state.i < length(state.leaf)
+        return (((key.a, key.b), value),
+                IntervalBTreeIteratorState(state.leaf, state.i + 1))
     else
-        return (((key.a, key.b), value), (leaf.right, 1))
+        return (((key.a, key.b), value),
+                IntervalBTreeIteratorState(state.leaf.right, 1))
     end
 end
 
 
-function done(t::IntervalBTree, state)
-    (leaf, i) = state
-    return isa(leaf, NullNode) || (isa(leaf, LeafNode) && isempty(leaf))
+function done{K, V, B}(t::IntervalBTree{K, V, B},
+                       state::IntervalBTreeIteratorState{K, V, B})
+    return isempty(state.leaf)
+end
+
+
+# Iterating through just keys and just values. There's a fair amount of code
+# duplication with the regular IntervalBTree iterator, but we are going for
+# maximum speed so we do this anyway
+
+immutable IntervalKeyIterator{K, V, B}
+    t::IntervalBTree{K, V, B}
+end
+
+
+function start{K, V, B}(it::IntervalKeyIterator{K, V, B})
+    # traverse to the first leaf node
+    node = it.t.root
+    while !isa(node, LeafNode)
+        node = node.children[1]
+    end
+
+    return IntervalBTreeIteratorState(node, 1)
+end
+
+
+function next{K, V, B}(t::IntervalKeyIterator{K, V, B},
+                       state::IntervalBTreeIteratorState{K, V, B})
+    key = state.leaf.keys[state.i]
+
+    if state.i < length(state.leaf)
+        return ((key.a, key.b),
+                IntervalBTreeIteratorState(state.leaf, state.i + 1))
+    else
+        return ((key.a, key.b),
+                IntervalBTreeIteratorState(state.leaf.right, 1))
+    end
+end
+
+
+function done{K, V, B}(t::IntervalKeyIterator{K, V, B},
+                       state::IntervalBTreeIteratorState{K, V, B})
+    return isempty(state.leaf)
+end
+
+
+function keys(t::IntervalBTree)
+    return IntervalKeyIterator(t)
+end
+
+
+immutable IntervalValueIterator{K, V, B}
+    t::IntervalBTree{K, V, B}
+end
+
+
+function start{K, V, B}(it::IntervalValueIterator{K, V, B})
+    # traverse to the first leaf node
+    node = it.t.root
+    while !isa(node, LeafNode)
+        node = node.children[1]
+    end
+
+    return IntervalBTreeIteratorState(node, 1)
+end
+
+
+function next{K, V, B}(t::IntervalValueIterator{K, V, B},
+                       state::IntervalBTreeIteratorState{K, V, B})
+    value = state.leaf.values[state.i]
+
+    if state.i < length(state.leaf)
+        return (value,
+                IntervalBTreeIteratorState(state.leaf, state.i + 1))
+    else
+        return (value,
+                IntervalBTreeIteratorState(state.leaf.right, 1))
+    end
+end
+
+
+function done{K, V, B}(t::IntervalValueIterator{K, V, B},
+                       state::IntervalBTreeIteratorState{K, V, B})
+    return isempty(state.leaf)
+end
+
+
+function values(t::IntervalBTree)
+    return IntervalValueIterator(t)
 end
 
 
