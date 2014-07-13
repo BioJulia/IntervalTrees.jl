@@ -129,7 +129,7 @@ type IntervalBTree{K, V, B} <: Associative{(K, K), V}
             return new(LeafNode{K, V, B}(), 0)
         end
 
-        d, r =  divrem(n, B - 1)
+        d, r =  divrem(n, B - 2)
         numleaves = d + (r > 0 ? 1 : 0)
         leaves = [LeafNode{K, V, B}() for _ in 1:numleaves]
 
@@ -137,7 +137,8 @@ type IntervalBTree{K, V, B} <: Associative{(K, K), V}
         minkeys = Array(Interval{K}, numleaves)
 
         # divy up the keys and values among the leaves
-        keys_per_leaf = div(n, numleaves)
+        d, r = divrem(n, numleaves)
+        keys_per_leaf = d + (r > 0 ? 1 : 0)
         for i in 1:numleaves
             u = (i - 1) * keys_per_leaf + 1
             v = min(n, i * keys_per_leaf)
@@ -160,12 +161,13 @@ type IntervalBTree{K, V, B} <: Associative{(K, K), V}
             end
 
             # make parents
-            d, r = divrem(length(children), B - 1)
+            d, r = divrem(length(children), B - 2)
             numparents = d + (r > 0 ? 1 : 0)
             parents = [InternalNode{K, V, B}() for _ in 1:numparents]
 
             # divy up children among parents
-            children_per_parent = div(length(children), numparents)
+            d, r = divrem(length(children), numparents)
+            children_per_parent = d + (r > 0 ? 1 : 0)
             for i in 1:numparents
                 u = (i - 1) * keys_per_leaf + 1
                 v = min(length(children), i * keys_per_leaf)

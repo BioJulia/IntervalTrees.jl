@@ -333,6 +333,7 @@ facts("Insertion") do
         values = collect(Int, 1:n)
         t = IntervalTree{Int, Int}(intervals, values)
 
+        @fact collect(keys(t)) == [(interval.a, interval.b) for interval in intervals] => true
         @fact issorted(collect(keys(t))) => true
         @fact validkeys(t) => true
         @fact validparents(t) => true
