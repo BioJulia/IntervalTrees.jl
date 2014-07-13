@@ -303,6 +303,22 @@ facts("Insertion") do
         @fact validparents(t) => true
         @fact validsiblings(t) => true
     end
+
+    context("bulk insertion") do
+        intervals = Interval{Int}[]
+        for v in 1:n
+            a, b = randinterval()
+            push!(intervals, Interval{Int}(a, b))
+        end
+        sort!(intervals)
+        values = collect(Int, 1:n)
+        t = IntervalTrees.IntervalTree{Int, Int}(intervals, values)
+
+        @fact issorted(collect(keys(t))) => true
+        @fact validkeys(t) => true
+        @fact validparents(t) => true
+        @fact validsiblings(t) => true
+    end
 end
 
 

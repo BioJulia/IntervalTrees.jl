@@ -6,7 +6,7 @@ import Base: start, next, done, haskey, length, isempty, getindex, setindex!,
              get, get!, delete!, push!, pop!, resize!, insert!, splice!, copy!,
              size, searchsortedfirst, isless, intersect, keys, values
 
-export IntervalTree, depth, hasintersection
+export IntervalTree, depth, hasintersection, Interval
 
 include("slice.jl")
 
@@ -99,6 +99,91 @@ type IntervalBTree{K, V, B} <: Associative{(K, K), V}
 
     function IntervalBTree()
         return new(LeafNode{K, V, B}(), 0)
+    end
+
+    # Construct an interval tree from a sorted array of intervals.
+    #
+    # This is generally much more efficient than constructing the same tree by
+    # inserting intervals one by one.
+    #
+    # Args:
+    #   keys: sorted array intervals
+    #   values: valuess corresponding to the keys
+    #
+    function IntervalBTree(keys::Vector{Interval{K}}, values::Vector{V})
+        if !issorted(keys)
+            error("Intervals must be sorted to construct an IntervalTree")
+        end
+
+        if length(keys) != length(values)
+            error("key and value arrays must be of equal length to construct an IntervalTree")
+        end
+
+        # Here's the plan: figure out how many leaf nodes we need, allocate
+        # them all up front. Copy in the keys and values, then work up towards
+        # the root.
+
+        n = length(keys)
+
+        d, r =  divrem(n, B - 1)
+        numleaves = d + (r > 0 ? 1 : 0)
+        leaves = [LeafNode{K, V, B}() for _ in 1:numleaves]
+
+        maxends = Array(K, numleaves)
+        minkeys = Array(Interval{K}, numleaves)
+
+        # divy up the keys and values among the leaves
+        keys_per_leaf = div(n, numleaves)
+        for i in 1:numleaves
+            u = (i - 1) * keys_per_leaf + 1
+            v = min(n, i * keys_per_leaf)
+            minkeys[i] = keys[u]
+            maxends[i] = keys[u].b
+            for j in u:v
+                push!(leaves[i].keys, keys[j])
+                push!(leaves[i].values, values[j])
+                maxends[i] = max(maxends[i], keys[j].b)
+            end
+            leaves[i].maxend = maxends[i]
+        end
+
+        children = leaves
+        while length(children) > 1
+            # sibling pointers
+            for i in 1:length(children)-1
+                children[i].right = children[i+1]
+                children[i+1].left = children[i]
+            end
+
+            # make parents
+            d, r = divrem(length(children), B - 1)
+            numparents = d + (r > 0 ? 1 : 0)
+            parents = [InternalNode{K, V, B}() for _ in 1:numparents]
+
+            # divy up children among parents
+            children_per_parent = div(length(children), numparents)
+            for i in 1:numparents
+                u = (i - 1) * keys_per_leaf + 1
+                v = min(length(children), i * keys_per_leaf)
+                maxend = maxends[u]
+                for j in u:v
+                    push!(parents[i].children, children[j])
+                    children[j].parent = parents[i]
+                    maxend = max(maxend, maxends[j])
+                    if j > u
+                        push!(parents[i].keys, minkeys[j])
+                    end
+                end
+                minkeys[i] = minkeys[u]
+                parents[i].maxend = maxend
+                maxends[i] = maxend
+            end
+
+            children = parents
+        end
+        @assert length(children) == 1
+
+        return new(children[1], n)
     end
 end
 
