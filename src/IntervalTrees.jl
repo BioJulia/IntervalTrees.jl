@@ -6,7 +6,7 @@ import Base: start, next, done, haskey, length, isempty, getindex, setindex!,
              get, get!, delete!, push!, pop!, resize!, insert!, splice!, copy!,
              size, searchsortedfirst, isless, intersect, keys, values
 
-export IntervalTree, depth, hasintersection, Interval
+export IntervalTree, Interval, depth, hasintersection, from
 
 include("slice.jl")
 
@@ -124,6 +124,10 @@ type IntervalBTree{K, V, B} <: Associative{(K, K), V}
         # the root.
 
         n = length(keys)
+
+        if n == 0
+            return new(LeafNode{K, V, B}(), 0)
+        end
 
         d, r =  divrem(n, B - 1)
         numleaves = d + (r > 0 ? 1 : 0)
@@ -280,6 +284,42 @@ end
 function done{K, V, B}(t::IntervalBTree{K, V, B},
                        state::IntervalBTreeIteratorState{K, V, B})
     return isempty(state.leaf)
+end
+
+
+# Iterate from a given starting from the first interval that intersects a given
+# point.
+
+immutable IntervalFromIterator{K, V, B}
+    t::IntervalBTree{K, V, B}
+    p::K
+end
+
+function from{K, V, B}(t::IntervalBTree{K, V, B}, p)
+    return IntervalFromIterator{K, V, B}(t, convert(K, p))
+end
+
+
+function start{K, V, B}(it::IntervalFromIterator{K, V, B})
+    node, i = firstfrom(it.t, it.p)
+
+    if i == 0
+        return IntervalBTreeIteratorState{K, V, B}(NullNode{K, V, B}(), i)
+    else
+        return IntervalBTreeIteratorState{K, V, B}(node, i)
+    end
+end
+
+
+function next{K, V, B}(it::IntervalFromIterator{K, V, B},
+                       state::IntervalBTreeIteratorState{K, V, B})
+    return next(it.t, state)
+end
+
+
+function done{K, V, B}(it::IntervalFromIterator{K, V, B},
+                       state::IntervalBTreeIteratorState{K, V, B})
+    return done(it.t, state)
 end
 
 
@@ -1060,6 +1100,43 @@ function firstintersection{K, V, B}(t::LeafNode{K, V, B}, query::Interval{K})
 
     return (t, 0)
 end
+
+
+# Find the first key with an end point >= query
+function firstfrom{K, V, B}(t::IntervalBTree{K, V, B}, query::K)
+    return firstfrom(t.root, query)
+end
+
+
+function firstfrom{K, V, B}(t::InternalNode{K, V, B}, query::K)
+    if isempty(t)
+        return (t, 0)
+    end
+
+    for (i, child) in enumerate(t.children)
+        if child.maxend >= query
+            return firstfrom(child, query)
+        end
+    end
+
+    return (t, 0)
+end
+
+
+function firstfrom{K, V, B}(t::LeafNode{K, V, B}, query::K)
+    if isempty(t)
+        return (t, 0)
+    end
+
+    for i in 1:length(t)
+        if t.keys[i].b >= query
+            return (t, i)
+        end
+    end
+
+    return (t, 0)
+end
+
 
 
 # If query intersects node.keys[i], return the next intersecting key as

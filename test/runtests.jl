@@ -167,8 +167,27 @@ end
 
 facts("Iteration") do
     t = IntervalTree{Int, Int}()
-
     @fact isempty([x for x in t]) => true
+
+    context("from") do
+        n = 100
+        maxend = 1000000
+        intervals = [randinterval(1, maxend) for _ in 1:n]
+        startpos = 50000
+        expected_count = 0
+        t = IntervalTree{Int, Int}()
+        for (i, interval) in enumerate(intervals)
+            t[interval] = i
+            if interval[2] >= startpos
+                expected_count += 1
+            end
+        end
+
+        @fact length(collect(from(t, startpos))) => expected_count
+        @fact length(collect(from(t, 0))) => n
+        @fact length(collect(from(t, maxend + 1))) => 0
+        @fact length(collect(from(IntervalTree{Int, Int}(), 0))) => 0
+    end
 end
 
 
@@ -312,12 +331,23 @@ facts("Insertion") do
         end
         sort!(intervals)
         values = collect(Int, 1:n)
-        t = IntervalTrees.IntervalTree{Int, Int}(intervals, values)
+        t = IntervalTree{Int, Int}(intervals, values)
 
         @fact issorted(collect(keys(t))) => true
         @fact validkeys(t) => true
         @fact validparents(t) => true
         @fact validsiblings(t) => true
+
+        # don't break on empty arrays
+        t = IntervalTree{Int, Int}(Interval{Int}[], Int[])
+        @fact issorted(collect(keys(t))) => true
+        @fact validkeys(t) => true
+        @fact validparents(t) => true
+        @fact validsiblings(t) => true
+
+        @fact_throws IntervalTree{Int, Int}(intervals, Int[1])
+        shuffle!(intervals)
+        @fact_throws IntervalTree{Int, Int}(intervals, values)
     end
 end
 
@@ -481,9 +511,15 @@ facts("Low Level") do
     x = Interval{Int}(1, 1)
     node = InternalNode{Int, Int, 32}()
     @fact IntervalTrees.findidx(node, x) => 0
+    @fact IntervalTrees.firstfrom(node, 1) => (node, 0)
     node = LeafNode{Int, Int, 32}()
     @fact IntervalTrees.findidx(node, x) => 0
     @fact IntervalTrees.firstintersection(node, x) => (node, 0)
+    @fact IntervalTrees.firstfrom(node, 1) => (node, 0)
+
+    push!(node.keys, Interval{Int}(1,1))
+    push!(node.values, 1)
+    @fact IntervalTrees.firstfrom(node, 2) => (node, 0)
 
     # test that delete! still works on a contrived tree with one internal and
     # one leaf node

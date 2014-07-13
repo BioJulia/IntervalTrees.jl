@@ -53,6 +53,27 @@ delete!(xs, (1,100))
 
 ```
 
+### Iteration
+
+As with dictionaries, key/value pairs can be iterated through efficiently.
+
+```julia
+    for ((a, b), v) in xs
+        println("Interval $a, $b has value %v")
+    end
+```
+
+Some other iteration functions are provided:
+
+**from(t::IntervalTree, query)**: Return an iterator thats iterates through every
+key/value pair with an end position >= to query.
+
+**keys(t::IntervalTree)**: Return an iterator that iterates through every
+interval key in the tree.
+
+**values(t::IntervalTree)**: Return an iterator that iterates through every
+value in the tree.
+
 
 ### Intersection
 
