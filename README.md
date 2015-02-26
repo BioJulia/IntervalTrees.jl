@@ -32,12 +32,12 @@ as an efficient way to map `(K, K)` tuples to values.
 using IntervalTrees
 
 # Create an interval tree mapping (Int, Int) intervals to Strings.
-x = IntervalTree{Int, String}()
+xs = IntervalTree{Int, String}()
 
 # Insert values
-x[(1,100)] = "Low"
-x[(101,1000)] = "Medium"
-x[(1001,10000)] = "High"
+xs[(1,100)] = "Low"
+xs[(101,1000)] = "Medium"
+xs[(1001,10000)] = "High"
 
 # Search for values
 println(xs[(1001,10000)]) # prints "High"
