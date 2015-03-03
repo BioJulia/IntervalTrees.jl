@@ -28,7 +28,7 @@ function getindex{T, N}(s::Slice{T, N}, i::Integer)
         @inbounds x = s.data[i]
         return x
     else
-        error(BoundsError)
+        throw(BoundsError)
     end
 end
 
@@ -38,7 +38,7 @@ function setindex!{T, N}(s::Slice{T, N}, value, i::Integer)
         @inbounds s.data[i] = value
         return value
     else
-        error(BoundsError)
+        throw(BoundsError)
     end
 end
 
@@ -48,7 +48,7 @@ function push!{T, N}(s::Slice{T, N}, value)
         s.n += 1
         @inbounds s.data[s.n] = value
     else
-        error(BoundsError("Slice expanded past fixed size."))
+        throw(BoundsError("Slice expanded past fixed size."))
     end
 end
 
@@ -59,7 +59,7 @@ function pop!{T, N}(s::Slice{T, N})
         s.n -= 1
         return x
     else
-        error(BoundsError)
+        throw(BoundsError)
     end
 end
 
@@ -71,7 +71,7 @@ function insert!{T, N}(s::Slice{T, N}, i::Integer, value)
         s.n += 1
         return s
     else
-        error(BoundsError)
+        throw(BoundsError)
     end
 end
 
@@ -81,7 +81,7 @@ function resize!{T, N}(s::Slice{T, N}, n::Integer)
         s.n = n
         return s
     else
-        error(BoundsError)
+        throw(BoundsError)
     end
 end
 
@@ -95,7 +95,7 @@ function splice!{T, N}(s::Slice{T, N}, i::Integer)
         s.n -= 1
         return x
     else
-        error(BoundsError)
+        throw(BoundsError)
     end
 end
 

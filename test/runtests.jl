@@ -194,7 +194,7 @@ end
 facts("Interval Intersection") do
     # generate n end-to-end intervals
     t = IntervalTree{Int, Int}()
-    intervals = {}
+    intervals = Any[]
     a = 1
     for i in 1:10000
         b = a + rand(0:100)
@@ -232,8 +232,8 @@ facts("Interval Intersection") do
 
     @fact hasintersection(t, 1) => false
 
-    intervals = {}
-    gaps = {}
+    intervals = Any[]
+    gaps = Any[]
     a = 1
     for i in 1:10000
         b = a + rand(0:100)
