@@ -152,6 +152,7 @@ facts("Search") do
         shuffle!(intervals)
         @fact all([haskey(t, interval) for interval in intervals]) => true
         @fact all([get!(t, interval, -1) != -1 for interval in intervals]) => true
+        @fact all([get(t, interval, -1) != -1 for interval in intervals]) => true
     end
 
     context("true negatives") do
@@ -159,6 +160,9 @@ facts("Search") do
                    for interval in [randinterval(maxend+1, 2 * maxend)
                                     for i in 1:n]]) => true
         @fact all([get!(t, interval, -1) == -1
+                   for interval in [randinterval(maxend+1, 2 * maxend)
+                                    for i in 1:n]]) => true
+        @fact all([get(t, interval, -1) == -1
                    for interval in [randinterval(maxend+1, 2 * maxend)
                                     for i in 1:n]]) => true
     end
@@ -330,10 +334,11 @@ facts("Insertion") do
             push!(intervals, Interval{Int}(a, b))
         end
         sort!(intervals)
-        values = collect(Int, 1:n)
-        t = IntervalTree{Int, Int}(intervals, values)
+        vals = collect(Int, 1:n)
+        t = IntervalTree{Int, Int}(intervals, vals)
 
         @fact collect(keys(t)) == [(interval.a, interval.b) for interval in intervals] => true
+        @fact collect(values(t)) == vals => true
         @fact issorted(collect(keys(t))) => true
         @fact validkeys(t) => true
         @fact validparents(t) => true
@@ -348,7 +353,7 @@ facts("Insertion") do
 
         @fact_throws IntervalTree{Int, Int}(intervals, Int[1])
         shuffle!(intervals)
-        @fact_throws IntervalTree{Int, Int}(intervals, values)
+        @fact_throws IntervalTree{Int, Int}(intervals, vals)
     end
 end
 
