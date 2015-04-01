@@ -1,17 +1,14 @@
-language: cpp
-compiler:
-    - gcc
+language: julia
+os:
+  - linux
+  - osx
+julia:
+  - release
+  - nightly
 notifications:
-    email: false
-env:
-    matrix:
-        - JULIAVERSION="julianightlies"
-before_install:
-    - sudo add-apt-repository ppa:staticfloat/julia-deps -y
-    - sudo add-apt-repository ppa:staticfloat/${JULIAVERSION} -y
-    - sudo apt-get update -qq -y
-    - sudo apt-get install libpcre3-dev julia -y
+  email: false
 script:
-  - julia -e 'Pkg.init(); Pkg.add("FactCheck"); run(`ln -s $(pwd()) $(Pkg.dir("IntervalTrees"))`); Pkg.pin("IntervalTrees"); Pkg.resolve()'
-  - julia --code-coverage test/runtests.jl
-  - julia -e 'Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - julia --check-bounds=yes -e 'Pkg.clone(pwd()); Pkg.build("IntervalTrees"); Pkg.test("IntervalTrees"; coverage=true)'
+after_success:
+  - julia -e 'cd(Pkg.dir("IntervalTrees")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())'
