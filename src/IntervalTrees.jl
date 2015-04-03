@@ -1289,6 +1289,7 @@ end
 immutable SuccessiveTreeIntersectionIterator{K, V, B}
     t1::IntervalBTree{K, V, B}
     t2::IntervalBTree{K, V, B}
+    reversed::Bool
 end
 
 
@@ -1310,7 +1311,7 @@ end
 function next{K, V, B}(it::SuccessiveTreeIntersectionIterator{K, V, B}, state)
     t1_state, t1_value, intersect_it, intersect_state = state
     intersect_value, intersect_state = next(intersect_it, intersect_state)
-    return_value = (t1_value, intersect_value)
+    return_value = it.reversed ? (intersect_value, t1_value) : (t1_value, intersect_value)
     while done(intersect_it, intersect_state) && !done(it.t1, t1_state)
         t1_value, t1_state = next(it.t1, t1_state)
         intersect_it = intersect(it.t2, t1_value[1])
@@ -1347,9 +1348,9 @@ function intersect{K, V, B}(t1::IntervalBTree{K, V, B},
     if cost1 <= cost2 <= cost3
         return IterativeTreeIntersectionIterator(t1, t2)
     elseif cost2 <= cost3
-        return SuccessiveTreeIntersectionIterator(t1, t2)
+        return SuccessiveTreeIntersectionIterator(t1, t2, false)
     else
-        return SuccessiveTreeIntersectionIterator(t2, t1)
+        return SuccessiveTreeIntersectionIterator(t2, t1, true)
     end
 end
 
