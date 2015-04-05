@@ -13,17 +13,17 @@ type Slice{T, N} <: AbstractVector{T}
     end
 end
 
-function length(s::Slice)
+function Base.length(s::Slice)
     return s.n
 end
 
 
-function size(s::Slice)
+function Base.size(s::Slice)
     return (s.n,)
 end
 
 
-function getindex{T, N}(s::Slice{T, N}, i::Integer)
+function Base.getindex{T, N}(s::Slice{T, N}, i::Integer)
     if 1 <= i <= s.n
         @inbounds x = s.data[i]
         return x
@@ -33,7 +33,7 @@ function getindex{T, N}(s::Slice{T, N}, i::Integer)
 end
 
 
-function setindex!{T, N}(s::Slice{T, N}, value, i::Integer)
+function Base.setindex!{T, N}(s::Slice{T, N}, value, i::Integer)
     if 1 <= i <= s.n
         @inbounds s.data[i] = value
         return value
@@ -43,7 +43,7 @@ function setindex!{T, N}(s::Slice{T, N}, value, i::Integer)
 end
 
 
-function push!{T, N}(s::Slice{T, N}, value)
+function Base.push!{T, N}(s::Slice{T, N}, value)
     if s.n < N
         s.n += 1
         @inbounds s.data[s.n] = value
@@ -53,7 +53,7 @@ function push!{T, N}(s::Slice{T, N}, value)
 end
 
 
-function pop!{T, N}(s::Slice{T, N})
+function Base.pop!{T, N}(s::Slice{T, N})
     if s.n > 0
         @inbounds x = s.data[s.n]
         s.n -= 1
@@ -64,9 +64,17 @@ function pop!{T, N}(s::Slice{T, N})
 end
 
 
-function insert!{T, N}(s::Slice{T, N}, i::Integer, value)
+function Base.insert!{T, N}(s::Slice{T, N}, i::Integer, value)
     if s.n < N && 1 <= i <= s.n + 1
-        @inbounds s.data[i+1:s.n+1] = s.data[i:s.n]
+        # TODO: This should work but won't. Fix this in Julia.
+        #copy!(s.data, i+1, s.data, i, s.n - i + 1)
+        if isbits(T)
+            unsafe_copy!(pointer(s.data, i+1), pointer(s.data, i), s.n - i + 1)
+        else
+            for k in 0:(s.n - i)
+                @inbounds s.data[s.n+1-k] = s.data[s.n-k]
+            end
+        end
         @inbounds s.data[i] = value
         s.n += 1
         return s
@@ -76,7 +84,7 @@ function insert!{T, N}(s::Slice{T, N}, i::Integer, value)
 end
 
 
-function resize!{T, N}(s::Slice{T, N}, n::Integer)
+function Base.resize!{T, N}(s::Slice{T, N}, n::Integer)
     if 1 <= n <= N
         s.n = n
         return s
@@ -86,7 +94,7 @@ function resize!{T, N}(s::Slice{T, N}, n::Integer)
 end
 
 
-function splice!{T, N}(s::Slice{T, N}, i::Integer)
+function Base.splice!{T, N}(s::Slice{T, N}, i::Integer)
     if 1 <= i <= s.n
         @inbounds x = s.data[i]
         for j in i:s.n-1
@@ -100,7 +108,7 @@ function splice!{T, N}(s::Slice{T, N}, i::Integer)
 end
 
 
-function searchsortedfirst(s::Slice, x)
+function Base.searchsortedfirst(s::Slice, x)
     return searchsortedfirst(s.data, x, 1, s.n, Base.Order.Forward)
 end
 

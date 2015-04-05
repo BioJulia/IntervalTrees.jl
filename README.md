@@ -14,13 +14,51 @@ Julia `Range` type.
 
 ### Types
 
-`IntervalTrees` exports an `IntervalTree{K, V}`, parameterized by a key type `K`
-and a value type `V`. An empty `IntervalTree` is initialized simply as:
+`IntervalTrees` exports an abstract type `AbstractInterval{K}`. Types deriving
+from it are expected to implement `first` and `last` methods that return the
+values of type `K` giving the inclusive range of the interval.
 
+There are also basic interval type provided:
 ```julia
-xs = IntervalTree{Int, Int}()
+immutable Interval{T} <: AbstractInterval{T}
+    first::T
+    last::T
+end
+
+immutable IntervalValue{K, V} <: AbstractInterval{K}
+    first::K
+    last::K
+    value::V
+end
 ```
 
+The basic data structure implemented is `IntervalTree{K, V}`, which stores
+intervals of type `V`, that have start and end positions of type `K`.
+
+`IntervalMap{K, V}` is a typealias for `IntervalTree{K, IntervalValue{K, V}}`
+to simplify associating data of type `V` with intervals.
+
+
+### Insertion and Initialization
+
+New intervals can be added to an `IntervalTree` with the `push!` function.
+
+```julia
+xs = IntervalTree{Int, Interval{Int}}()
+push!(xs, Interval{Int}(500, 1000))
+```
+
+A more efficient means of building the data structure by bulk insertion.
+If the intervals are knows up front and provided in a sorted array, an
+`IntervalTree` can be built extremely efficiently.
+
+```julia
+intervals = Interval{Int}[]
+# construct a large array of intervals...
+
+sort!(intervals)
+xs = IntervalTree{Int, Interval{Int}}(intervals)
+```
 
 ### Standard Dictionary Operations
 
@@ -32,7 +70,7 @@ as an efficient way to map `(K, K)` tuples to values.
 using IntervalTrees
 
 # Create an interval tree mapping (Int, Int) intervals to Strings.
-xs = IntervalTree{Int, ASCIIString}()
+xs = IntervalMap{Int, ASCIIString}()
 
 # Insert values
 xs[(1,100)] = "Low"
@@ -58,8 +96,8 @@ delete!(xs, (1,100))
 As with dictionaries, key/value pairs can be iterated through efficiently.
 
 ```julia
-    for ((a, b), v) in xs
-        println("Interval $a, $b has value %v")
+    for x in xs
+        println("Interval $(x.first), $(x.last) has value $(x.value)")
     end
 ```
 
@@ -82,12 +120,12 @@ find intersections. `IntervalTrees` supports searching and iterating over
 intersections between two trees or between a tree and a single interval.
 
 **intersect(t::IntervalTree, query::(Any, Any))**: Return an iterator over every
-`(key, value)` pair in `t` that intersects `query`.
+interval in `t` that intersects `query`.
 
 
 **intersect(t1::IntervalTree, t2::IntervalTree)**: Return an iterator over every
-pair of intersecting entries `((key1, value1), (key2, value2))`, where `(key1,
-value1)` is in `t1` and `(key2, value2)` is in `t2`.
+pair of intersecting entries `(interval1, interval2)`, where `interval1` is
+in `t1` and `interval2` is in `t2`.
 
 
 **hasintersection(t::IntervalTree, position)**: Return true if `position`

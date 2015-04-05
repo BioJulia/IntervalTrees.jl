@@ -35,7 +35,6 @@ function validkeys(node::IntervalTrees.InternalNode, minint, maxint)
 
     for i in 1:length(node.keys)
         k = node.keys[i]
-
         if IntervalTrees.minkey(node.children[i+1]) != k
             return false
         end
@@ -50,8 +49,8 @@ end
 
 
 function validkeys(node::IntervalTrees.LeafNode, minint, maxint)
-    for k in node.keys
-        if !(minint <= k < maxint) || k.b > node.maxend
+    for entry in node.entries
+        if !(minint <= entry <= maxint) || last(entry) > node.maxend
             return false
         end
     end
@@ -61,7 +60,7 @@ end
 
 # Verify that parent pointers are correct
 function validparents(t::IntervalTrees.IntervalBTree)
-    if !isa(t.root.parent, IntervalTrees.NullNode)
+    if !isnull(t.root.parent)
         return false
     end
 
@@ -71,7 +70,7 @@ end
 
 function validparents(node::IntervalTrees.InternalNode)
     for child in node.children
-        if !validparents(child) || child.parent != node
+        if !validparents(child) || get(child.parent) != node
             return false
         end
     end
@@ -85,59 +84,59 @@ end
 
 # Verify that sibling/cousin pointers are correct
 function validsiblings(t::IntervalTrees.IntervalBTree)
-    if !isa(t.root.left, IntervalTrees.NullNode) ||
-       !isa(t.root.right, IntervalTrees.NullNode)
-       return false
-   end
+    if !isnull(t.root.left) || !isnull(t.root.right)
+        return false
+    end
 
-   # Do an in-order traversal, pushing nodes onto a stack indexed by
-   # depth.
-   tdepth = depth(t)
-   nodestacks = [Array(IntervalTrees.Node, 0) for _ in 1:tdepth]
+    # Do an in-order traversal, pushing nodes onto a stack indexed by
+    # depth.
+    tdepth = depth(t)
+    nodestacks = [Array(IntervalTrees.Node, 0) for _ in 1:tdepth]
 
-   function _visit(node::IntervalTrees.InternalNode, k)
-       push!(nodestacks[k], node)
-       for child in node.children
-           _visit(child, k+1)
-       end
-   end
+    function _visit(node::IntervalTrees.InternalNode, k)
+        push!(nodestacks[k], node)
+        for child in node.children
+            _visit(child, k+1)
+        end
+    end
 
-   function _visit(node::IntervalTrees.LeafNode, k)
-       push!(nodestacks[k], node)
-   end
+    function _visit(node::IntervalTrees.LeafNode, k)
+        push!(nodestacks[k], node)
+    end
 
-   _visit(t.root, 1)
+    _visit(t.root, 1)
 
-   for k in 1:tdepth
-       stack = nodestacks[k]
-       if isempty(stack)
-           continue
-       end
+    for k in 1:tdepth
+        stack = nodestacks[k]
+        if isempty(stack)
+            continue
+        end
 
-       if !isa(stack[1].left, IntervalTrees.NullNode) ||
-          !isa(stack[end].right, IntervalTrees.NullNode)
-           return false
-       end
+        if !isnull(stack[1].left) || !isnull(stack[end].right)
+            return false
+        end
 
-       if length(stack) > 1
-           if stack[1].right != stack[2] || stack[end].left != stack[end-1]
-               return false
-           end
-       end
+        if length(stack) > 1
+            if isnull(stack[1].right) || get(stack[1].right) != stack[2] ||
+               isnull(stack[end].left) || get(stack[end].left) != stack[end-1]
+                return false
+            end
+        end
 
-       for i in 2:length(stack)-1
-           if stack[i].left != stack[i-1] || stack[i].right != stack[i+1]
-               return false
-           end
-       end
-   end
+        for i in 2:length(stack)-1
+            if isnull(stack[i].left) || get(stack[i].left) != stack[i-1] ||
+               isnull(stack[i].right) || get(stack[i].right) != stack[i+1]
+                return false
+            end
+        end
+    end
 
-   return true
+    return true
 end
 
 
 facts("Search") do
-    t = IntervalTree{Int, Int}()
+    t = IntervalMap{Int, Int}()
     @fact haskey(t, (1,2)) => false
 
     n = 10000
@@ -151,7 +150,8 @@ facts("Search") do
 
         shuffle!(intervals)
         @fact all([haskey(t, interval) for interval in intervals]) => true
-        @fact all([get!(t, interval, -1) != -1 for interval in intervals]) => true
+        @fact all([get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1)
+                   for interval in intervals]) => true
         @fact all([get(t, interval, -1) != -1 for interval in intervals]) => true
     end
 
@@ -159,7 +159,7 @@ facts("Search") do
         @fact all([!haskey(t, interval)
                    for interval in [randinterval(maxend+1, 2 * maxend)
                                     for i in 1:n]]) => true
-        @fact all([get!(t, interval, -1) == -1
+        @fact all([get!(t, interval, -1) == IntervalValue{Int, Int}(interval[1], interval[2], -1)
                    for interval in [randinterval(maxend+1, 2 * maxend)
                                     for i in 1:n]]) => true
         @fact all([get(t, interval, -1) == -1
@@ -170,7 +170,7 @@ end
 
 
 facts("Iteration") do
-    t = IntervalTree{Int, Int}()
+    t = IntervalMap{Int, Int}()
     @fact isempty([x for x in t]) => true
 
     context("from") do
@@ -179,7 +179,7 @@ facts("Iteration") do
         intervals = [randinterval(1, maxend) for _ in 1:n]
         startpos = 50000
         expected_count = 0
-        t = IntervalTree{Int, Int}()
+        t = IntervalMap{Int, Int}()
         for (i, interval) in enumerate(intervals)
             t[interval] = i
             if interval[2] >= startpos
@@ -197,7 +197,7 @@ end
 
 facts("Interval Intersection") do
     # generate n end-to-end intervals
-    t = IntervalTree{Int, Int}()
+    t = IntervalMap{Int, Int}()
     intervals = Any[]
     a = 1
     for i in 1:10000
@@ -232,7 +232,7 @@ facts("Interval Intersection") do
     @fact all([random_intersection_query() for _ in 1:1000]) => true
 
     # intervals separated by 1
-    t = IntervalTree{Int, Int}()
+    t = IntervalMap{Int, Int}()
 
     @fact hasintersection(t, 1) => false
 
@@ -242,7 +242,7 @@ facts("Interval Intersection") do
     for i in 1:10000
         b = a + rand(0:100)
         if iseven(b)
-            t[(a, b)] = i
+            t[a, b] = i
             push!(intervals, (a, b))
         else
             push!(gaps, (a, b))
@@ -257,10 +257,28 @@ facts("Interval Intersection") do
 end
 
 
+facts("Nonunique") do
+    t = IntervalTree{Int, IntervalValue{Int, Int}}()
+    n = 1000
+    for i in 1:n
+        push!(t, IntervalValue{Int, Int}(50, 100, i))
+    end
+    push!(t, IntervalValue{Int, Int}(1, 200, n + 1))
+    push!(t, IntervalValue{Int, Int}(1, 1, n + 2))
+    push!(t, IntervalValue{Int, Int}(200, 200, n + 3))
+
+    @fact length(collect(t)) == length(t) == n + 3 => true
+    @fact issorted(collect(keys(t))) => true
+    @fact validkeys(t) => true
+    @fact validparents(t) => true
+    @fact validsiblings(t) => true
+end
+
+
 facts("Tree Intersection") do
     n = 10000
-    t1 = IntervalTrees.IntervalTree{Int, Int}()
-    t2 = IntervalTrees.IntervalTree{Int, Int}()
+    t1 = IntervalTrees.IntervalMap{Int, Int}()
+    t2 = IntervalTrees.IntervalMap{Int, Int}()
     maxend = 1000000
     for k in 1:n
         # generate small-ish intervals so we avoid the worst case
@@ -276,22 +294,22 @@ facts("Tree Intersection") do
 
     # Since IntervalTrees has two tree intersection algorithms, I'm
     # testing by checking that they are in agreement.
-    a = IntervalTrees.SuccessiveTreeIntersectionIterator(t1, t2)
+    a = IntervalTrees.SuccessiveTreeIntersectionIterator(t1, t2, false)
     b = IntervalTrees.IterativeTreeIntersectionIterator(t1, t2)
     @fact collect(a) == collect(b) => true
 
-    # handle a particular intersection case that may not otherwise get hit
-    t1 = IntervalTree{Int, Int}()
+    ## handle a particular intersection case that may not otherwise get hit
+    t1 = IntervalMap{Int, Int}()
     t1[(1, 2)] = 1
-    t2 = IntervalTree{Int, Int}()
+    t2 = IntervalMap{Int, Int}()
     t2[(1001, 1002)] = 2
     @fact isempty(collect(IntervalTrees.IterativeTreeIntersectionIterator(t1, t2))) => true
-    @fact isempty(collect(IntervalTrees.SuccessiveTreeIntersectionIterator(t1, t2))) => true
+    @fact isempty(collect(IntervalTrees.SuccessiveTreeIntersectionIterator(t1, t2, false))) => true
 end
 
 
 facts("Insertion") do
-    t = IntervalTrees.IntervalTree{Int, Int}()
+    t = IntervalMap{Int, Int}()
     n = 100000
 
     context("random insertions") do
@@ -328,24 +346,24 @@ facts("Insertion") do
     end
 
     context("bulk insertion") do
-        intervals = Interval{Int}[]
+        intervals = IntervalValue{Int, Int}[]
         for v in 1:n
             a, b = randinterval()
-            push!(intervals, Interval{Int}(a, b))
+            push!(intervals, IntervalValue{Int, Int}(a, b, v))
         end
         sort!(intervals)
-        vals = collect(Int, 1:n)
-        t = IntervalTree{Int, Int}(intervals, vals)
+        t = IntervalMap{Int, Int}(intervals)
 
-        @fact collect(keys(t)) == [(interval.a, interval.b) for interval in intervals] => true
-        @fact collect(values(t)) == vals => true
+        @fact collect(keys(t)) == [Interval{Int}(interval.first, interval.last)
+                                   for interval in intervals] => true
+        @fact collect(values(t)) == [interval.value for interval in intervals] => true
         @fact issorted(collect(keys(t))) => true
         @fact validkeys(t) => true
         @fact validparents(t) => true
         @fact validsiblings(t) => true
 
         # don't break on empty arrays
-        t = IntervalTree{Int, Int}(Interval{Int}[], Int[])
+        t = IntervalMap{Int, Int}(IntervalValue{Int, Int}[])
         @fact issorted(collect(keys(t))) => true
         @fact validkeys(t) => true
         @fact validparents(t) => true
@@ -359,7 +377,7 @@ end
 
 
 facts("Updates") do
-    t = IntervalTrees.IntervalTree{Int, Int}()
+    t = IntervalMap{Int, Int}()
     n = 100000
     ks = [randinterval() for _ in 1:n]
     for (v, k) in enumerate(ks)
@@ -379,8 +397,9 @@ end
 
 
 facts("Deletion") do
-    B = 64
-    t = IntervalTrees.IntervalBTree{Int, Int, B}()
+    # Set B to smaller number to try to induce more weird merges and borrows and
+    # such
+    t = IntervalBTree{Int, IntervalValue{Int, Int}, 8}()
     n = 100000
 
     # insert n random intervals
@@ -470,7 +489,7 @@ facts("Deletion") do
 
     # contrive a special case: merge with the left when we have a non-null
     # right
-    t = IntervalBTree{Int, Int, 4}()
+    t = IntervalBTree{Int, IntervalValue{Int, Int}, 4}()
     for i in 1:24
         t[(i, i)] = i
     end
@@ -515,34 +534,31 @@ end
 facts("Low Level") do
     # findidx should return 0 when called on an empty node
     x = Interval{Int}(1, 1)
-    node = InternalNode{Int, Int, 32}()
+    node = InternalNode{Int, IntervalValue{Int, Int}, 32}()
     @fact IntervalTrees.findidx(node, x) => 0
     @fact IntervalTrees.firstfrom(node, 1) => (node, 0)
-    node = LeafNode{Int, Int, 32}()
+    node = LeafNode{Int, IntervalValue{Int, Int}, 32}()
     @fact IntervalTrees.findidx(node, x) => 0
     @fact IntervalTrees.firstintersection(node, x) => (node, 0)
     @fact IntervalTrees.firstfrom(node, 1) => (node, 0)
 
-    push!(node.keys, Interval{Int}(1,1))
-    push!(node.values, 1)
+    push!(node.entries, IntervalValue{Int, Int}(1, 1, 1))
     @fact IntervalTrees.firstfrom(node, 2) => (node, 0)
 
     # test that delete! still works on a contrived tree with one internal and
     # one leaf node
-    t = IntervalBTree{Int, Int, 32}()
-    t.root = InternalNode{Int, Int, 32}()
-    push!(t.root.children, LeafNode{Int, Int, 32}())
+    t = IntervalBTree{Int, IntervalValue{Int, Int}, 32}()
+    t.root = InternalNode{Int, IntervalValue{Int, Int}, 32}()
+    push!(t.root.children, LeafNode{Int, IntervalValue{Int, Int}, 32}())
     push!(t.root.keys, x)
-    push!(t.root.children[1].keys, x)
-    push!(t.root.children[1].values, 1)
+    push!(t.root.children[1].entries, IntervalValue{Int, Int}(1, 1, 1))
     delete!(t, (1,1))
     @fact isa(t.root, LeafNode) => true
 
-    # test that the right thing happens if you delete the last key in a non-root
-    # leaf node (which can't actually happen)
-    node = LeafNode{Int, Int, 32}()
-    push!(node.keys, x)
-    push!(node.values, 1)
+    ## test that the right thing happens if you delete the last key in a non-root
+    ## leaf node (which can't actually happen)
+    node = LeafNode{Int, IntervalValue{Int}, 32}()
+    push!(node.entries, IntervalValue{Int, Int}(1, 1, 1))
     @fact IntervalTrees.findidx(node, x) => 1
 end
 
