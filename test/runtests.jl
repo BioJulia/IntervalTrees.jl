@@ -2,6 +2,7 @@
 
 module TestIntervalTrees
 
+using Compat
 using FactCheck
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
@@ -9,7 +10,7 @@ import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
 
 # Generating random intervals
 srand(12345)
-const maxend = int(1e9)
+const maxend = round(Int, 1e9)
 
 function randinterval(minstart=1, maxend=maxend)
     a = rand(minstart:maxend)
