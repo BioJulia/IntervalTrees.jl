@@ -3,6 +3,9 @@
 module IntervalTrees
 
 using Compat, Docile
+using Docile: @doc
+
+import Base: first, last
 
 export IntervalTree, IntervalMap, AbstractInterval, Interval, IntervalValue, depth,
        hasintersection, from, first, last
