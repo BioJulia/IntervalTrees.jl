@@ -47,6 +47,7 @@ end
 
 first{K, V}(i::IntervalValue{K, V}) = i.first
 last{K, V}(i::IntervalValue{K, V}) = i.last
+value{K, V}(i::IntervalValue{K, V}) = i.value
 
 
 # Each of these types is indexes by K, V, B, where

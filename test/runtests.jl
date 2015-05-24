@@ -8,6 +8,17 @@ using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
 
 
+# Getters
+facts("Getters") do
+    i = Interval(5, 6)
+    iv = IntervalValue(10, 11, "FOO")
+    @fact first(i)  => 5
+    @fact last(i)   => 6
+    @fact first(iv) => 10
+    @fact last(iv)  => 11
+    @fact value(iv) => "FOO"
+end
+
 # Generating random intervals
 srand(12345)
 const maxend = round(Int, 1e9)
