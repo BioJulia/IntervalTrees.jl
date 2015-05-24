@@ -8,7 +8,7 @@ using Docile: @doc
 import Base: first, last
 
 export IntervalTree, IntervalMap, AbstractInterval, Interval, IntervalValue, depth,
-       hasintersection, from, first, last
+       hasintersection, from, first, last, print, show
 
 include("slice.jl")
 
@@ -49,19 +49,19 @@ first{K, V}(i::IntervalValue{K, V}) = i.first
 last{K, V}(i::IntervalValue{K, V}) = i.last
 value{K, V}(i::IntervalValue{K, V}) = i.value
 
+Base.print(io::IO, x::Interval) = print(io, "\n($(first(x)),$(last(x)))")
 function Base.show(io::IO, x::Interval)
     t = typeof(x)::DataType
     show(io, t)
-    print(io,  "\n($(first(x)),$(last(x)))")
+    print(x)
 end
 
+Base.print(io::IO, x::IntervalValue) = print(io, "\n($(first(x)),$(last(x))) => $(value(x))")
 function Base.show(io::IO, x::IntervalValue)
     t = typeof(x)::DataType
     show(io, t)
-    print(io,  "\n($(first(x)),$(last(x))) => $(value(x))")
+    print(x)
 end
-
-
 
 # Each of these types is indexes by K, V, B, where
 #   K : Interval type. Intervals are represented as (K, K) tuples.
@@ -232,6 +232,29 @@ end
 
 # Default B-tree order
 typealias IntervalTree{K, V} IntervalBTree{K, V, 64}
+
+# Show
+
+function Base.show(io::IO, it::IntervalTree)
+    t = typeof(it)::DataType
+    show(io, t)
+    n = length(it)
+    if length(it) > 6
+        # Hacky random access ...
+        for (i, x) in enumerate(it)
+            i < 4 && print(x)
+        end
+        print("\n\u22EE") # Vertical ellipsis
+        for (i, x) in enumerate(it)
+            i > (n-3) && print(x)
+        end
+    else
+        for x in it
+            print(x)
+        end
+    end
+end
+
 
 
 # Length
