@@ -53,14 +53,14 @@ Base.print(io::IO, x::Interval) = print(io, "\n($(first(x)),$(last(x)))")
 function Base.show(io::IO, x::Interval)
     t = typeof(x)::DataType
     show(io, t)
-    print(x)
+    print(io, x)
 end
 
 Base.print(io::IO, x::IntervalValue) = print(io, "\n($(first(x)),$(last(x))) => $(value(x))")
 function Base.show(io::IO, x::IntervalValue)
     t = typeof(x)::DataType
     show(io, t)
-    print(x)
+    print(io, x)
 end
 
 # Each of these types is indexes by K, V, B, where
