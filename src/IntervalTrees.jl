@@ -49,6 +49,19 @@ first{K, V}(i::IntervalValue{K, V}) = i.first
 last{K, V}(i::IntervalValue{K, V}) = i.last
 value{K, V}(i::IntervalValue{K, V}) = i.value
 
+function Base.show(io::IO, x::Interval)
+    t = typeof(x)::DataType
+    show(io, t)
+    print(io,  "\n($(first(x)),$(last(x)))")
+end
+
+function Base.show(io::IO, x::IntervalValue)
+    t = typeof(x)::DataType
+    show(io, t)
+    print(io,  "\n($(first(x)),$(last(x))) => $(value(x))")
+end
+
+
 
 # Each of these types is indexes by K, V, B, where
 #   K : Interval type. Intervals are represented as (K, K) tuples.
