@@ -990,6 +990,17 @@ function hasintersection{K, V, B}(t::LeafNode{K, V, B}, query::K)
 end
 
 
+# Represent an intersection in an IntervalTree by pointing to a LeafNode
+# and an index within that leaf node. No intersection is represented with
+# index == 0.
+immutable Intersection{K, V, B}
+    index::Int
+    node::LeafNode{K, V, B}
+
+    Intersection(index, node) = new(index, node)
+    Intersection() = new(0)
+end
+
 
 # Find the first interval in the tree that intersects the query and return
 # as a (leafnode, index) pair, indicating that leafnode.keys[index] intersects.
@@ -1002,38 +1013,38 @@ end
 
 function firstintersection{K, V, B}(t::InternalNode{K, V, B}, query::AbstractInterval{K})
     if isempty(t) || t.maxend < first(query)
-        return (t, 0)
+        return Intersection{K, V, B}()
     end
 
     for (i, child) in enumerate(t.children)
         if child.maxend >= first(query) && (i == 1 || t.keys[i-1].first <= last(query))
-            s, j = firstintersection(child, query)
-            if j > 0
-                return (s, j)
+            intersection = firstintersection(child, query)
+            if intersection.index > 0
+                return intersection
             end
         elseif minstart(child) > last(query)
             break
         end
     end
 
-    return (t, 0)
+    return Intersection{K, V, B}()
 end
 
 
 function firstintersection{K, V, B}(t::LeafNode{K, V, B}, query::AbstractInterval{K})
     if isempty(t) || t.maxend < first(query)
-        return (t, 0)
+        return Intersection{K, V, B}()
     end
 
     for i in 1:length(t)
         if intersects(t.entries[i], query)
-            return (t, i)
+            return Intersection{K, V, B}(i, t)
         elseif query.last < first(t.entries[i])
             break
         end
     end
 
-    return (t, 0)
+    return Intersection{K, V, B}()
 end
 
 
@@ -1078,24 +1089,25 @@ end
 # a (leafnode, index) pair.
 function nextintersection{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
                                    query::AbstractInterval{K})
-    u = Nullable(t)
     j = i + 1
     while true
-        unode = get(u)
-        while j <= length(unode)
-            if intersects(unode.entries[j], query)
-                return (u, j)
+        while j <= length(t)
+            if intersects(t.entries[j], query)
+                return Intersection{K, V, B}(j, t)
             end
             j += 1
         end
         j = 1
-        u = unode.right
-        if isnull(u) || minstart(get(u)) > last(query)
+        if isnull(t.right)
+            break
+        end
+        t = get(t.right)
+        if minstart(t) > last(query)
             break
         end
     end
 
-    return (u, 0)
+    return Intersection{K, V, B}()
 end
 
 
@@ -1124,44 +1136,21 @@ function Base.intersect{K, V, B}(t::IntervalBTree{K, V, B}, query::AbstractInter
 end
 
 
-immutable IntervalIntersectIteratorState{K, V, B}
-    index::Int
-    node::LeafNode{K, V, B}
-
-    function IntervalIntersectIteratorState(index::Int)
-        return new(index)
-    end
-
-    function IntervalIntersectIteratorState(index::Int, node::LeafNode{K, V, B})
-        return new(index, node)
-    end
-end
-
-
 function Base.start{K, V, B}(it::IntervalIntersectionIterator{K, V, B})
-    node, idx = firstintersection(it.t, it.query)
-    if idx == 0
-        return IntervalIntersectIteratorState{K, V, B}(idx)
-    else
-        return IntervalIntersectIteratorState{K, V, B}(idx, node)
-    end
+    return firstintersection(it.t, it.query)
 end
 
 
 function Base.next{K, V, B}(it::IntervalIntersectionIterator{K, V, B},
-                            state::IntervalIntersectIteratorState{K, V, B})
+                            state::Intersection{K, V, B})
     entry = state.node.entries[state.index]
-    nextnode, index = nextintersection(state.node, state.index, it.query)
-    if index == 0
-        return entry, IntervalIntersectIteratorState{K, V, B}(index)
-    else
-        return entry, IntervalIntersectIteratorState{K, V, B}(index, get(nextnode))
-    end
+    state = nextintersection(state.node, state.index, it.query)
+    return entry, state
 end
 
 
 function Base.done{K, V, B}(it::IntervalIntersectionIterator{K, V, B},
-                            state::IntervalIntersectIteratorState{K, V, B})
+                            state::Intersection{K, V, B})
     return state.index == 0
 end
 
@@ -1266,20 +1255,16 @@ end
 
 
 immutable SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2}
-    done::Bool
+    intersection::Intersection{K, V2, B2}
     t1_state::IntervalBTreeIteratorState{K, V1, B1}
     t1_value::V1
-    intersect_it::IntervalIntersectionIterator{K, V2, B2}
-    intersect_state::IntervalIntersectIteratorState{K, V2, B2}
 
-    function SuccessiveTreeIntersectionIteratorState()
-        return new(true)
+    function SuccessiveTreeIntersectionIteratorState(intersection, t1_state, t1_value)
+        return new(intersection, t1_state, t1_value)
     end
 
-    function SuccessiveTreeIntersectionIteratorState(done, t1_state, t1_value,
-                                                     intersect_it,
-                                                     intersect_state)
-        return new(done, t1_state, t1_value, intersect_it, intersect_state)
+    function SuccessiveTreeIntersectionIteratorState()
+        return new(Intersection{K, V2, B2}())
     end
 end
 
@@ -1288,11 +1273,10 @@ function Base.start{K, V1, B1, V2, B2}(it::SuccessiveTreeIntersectionIterator{K,
     t1_state = start(it.t1)
     while !done(it.t1, t1_state)
         t1_value, t1_state = next(it.t1, t1_state)
-        intersect_it = intersect(it.t2, t1_value)
-        intersect_state = start(intersect_it)
-        if !done(intersect_it, intersect_state)
+        intersection = firstintersection(it.t2, t1_value)
+        if intersection.index != 0
             return SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2}(
-                        false, t1_state, t1_value, intersect_it, intersect_state)
+                        intersection, t1_state, t1_value)
         end
     end
 
@@ -1302,28 +1286,25 @@ end
 
 function Base.next{K, V1, B1, V2, B2}(it::SuccessiveTreeIntersectionIterator{K, V1, B1, V2, B2},
                                       state::SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2})
-
-    intersect_it = state.intersect_it
-    t1_value = state.t1_value
+    intersection = state.intersection
+    entry = intersection.node.entries[intersection.index]
+    return_value = it.reversed ? (entry, state.t1_value) : (state.t1_value, entry)
     t1_state = state.t1_state
-    intersect_value, intersect_state = next(intersect_it, state.intersect_state)
-    return_value = it.reversed ? (intersect_value, state.t1_value) : (state.t1_value, intersect_value)
-    while done(intersect_it, intersect_state) && !done(it.t1, t1_state)
+    t1_value = state.t1_value
+    intersection = nextintersection(intersection.node, intersection.index, t1_value)
+    while intersection.index == 0 && !done(it.t1, t1_state)
         t1_value, t1_state = next(it.t1, t1_state)
-        intersect_it = intersect(it.t2, t1_value)
-        intersect_state = start(intersect_it)
+        intersection = firstintersection(it.t2, t1_value)
     end
 
-    return (return_value,
-            SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2}(
-                done(intersect_it, intersect_state),
-                t1_state, t1_value, intersect_it, intersect_state))
+    return return_value, SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2}(
+            intersection, t1_state, t1_value)
 end
 
 
 function Base.done{K, V1, B1, V2, B2}(it::SuccessiveTreeIntersectionIterator{K, V1, B1, V2, B2},
                                       state::SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2})
-    return state.done
+    return state.intersection.index == 0
 end
 
 

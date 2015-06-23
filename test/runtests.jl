@@ -545,13 +545,16 @@ end
 # Abuse low-level functions to test cases that wouldn't otherwise occur
 facts("Low Level") do
     # findidx should return 0 when called on an empty node
+    K = Int
+    V = IntervalValue{Int}
+    B = 32
     x = Interval{Int}(1, 1)
-    node = InternalNode{Int, IntervalValue{Int, Int}, 32}()
+    node = InternalNode{K, V, B}()
     @fact IntervalTrees.findidx(node, x) => 0
     @fact IntervalTrees.firstfrom(node, 1) => (node, 0)
-    node = LeafNode{Int, IntervalValue{Int, Int}, 32}()
+    node = LeafNode{K, V, B}()
     @fact IntervalTrees.findidx(node, x) => 0
-    @fact IntervalTrees.firstintersection(node, x) => (node, 0)
+    @fact IntervalTrees.firstintersection(node, x) => IntervalTrees.Intersection{K, V, B}()
     @fact IntervalTrees.firstfrom(node, 1) => (node, 0)
 
     push!(node.entries, IntervalValue{Int, Int}(1, 1, 1))
@@ -559,9 +562,9 @@ facts("Low Level") do
 
     # test that delete! still works on a contrived tree with one internal and
     # one leaf node
-    t = IntervalBTree{Int, IntervalValue{Int, Int}, 32}()
-    t.root = InternalNode{Int, IntervalValue{Int, Int}, 32}()
-    push!(t.root.children, LeafNode{Int, IntervalValue{Int, Int}, 32}())
+    t = IntervalBTree{K, V, B}()
+    t.root = InternalNode{K, V, B}()
+    push!(t.root.children, LeafNode{K, V, B}())
     push!(t.root.keys, x)
     push!(t.root.children[1].entries, IntervalValue{Int, Int}(1, 1, 1))
     delete!(t, (1,1))
