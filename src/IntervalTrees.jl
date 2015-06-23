@@ -1341,7 +1341,7 @@ function Base.intersect{K, V1, B1, V2, B2}(t1::IntervalBTree{K, V1, B1},
 
     cost1 = n + m
     cost2 = n * log(1 + m)
-    cost3 = n * log(1 + n)
+    cost3 = m * log(1 + n)
     if cost1 <= cost2 <= cost3
         return IterativeTreeIntersectionIterator(t1, t2)
     elseif cost2 <= cost3
