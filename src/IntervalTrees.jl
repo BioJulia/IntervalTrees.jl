@@ -136,7 +136,7 @@ end
 
 
 type IntervalBTree{K, V, B}
-    root::Node
+    root::Node{K, V, B}
     n::Int # Number of entries
 
     function IntervalBTree()
