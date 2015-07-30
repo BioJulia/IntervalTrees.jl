@@ -306,8 +306,8 @@ facts("Tree Intersection") do
 
     # Since IntervalTrees has two tree intersection algorithms, I'm
     # testing by checking that they are in agreement.
-    a = IntervalTrees.SuccessiveTreeIntersectionIterator(t1, t2, false)
-    b = IntervalTrees.IterativeTreeIntersectionIterator(t1, t2)
+    a = intersect(t1, t2, method=:successive)
+    b = intersect(t1, t2, method=:iterative)
     @fact collect(a) == collect(b) => true
 
     ## handle a particular intersection case that may not otherwise get hit
@@ -315,8 +315,8 @@ facts("Tree Intersection") do
     t1[(1, 2)] = 1
     t2 = IntervalMap{Int, Int}()
     t2[(1001, 1002)] = 2
-    @fact isempty(collect(IntervalTrees.IterativeTreeIntersectionIterator(t1, t2))) => true
-    @fact isempty(collect(IntervalTrees.SuccessiveTreeIntersectionIterator(t1, t2, false))) => true
+    @fact isempty(collect(intersect(t1, t2, method=:iterative))) => true
+    @fact isempty(collect(intersect(t1, t2, method=:successive))) => true
 end
 
 

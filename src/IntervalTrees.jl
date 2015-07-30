@@ -1155,50 +1155,83 @@ function Base.done{K, V, B}(it::IntervalIntersectionIterator{K, V, B},
 end
 
 
-# Iterate through the intersection of two trees by iterating through both in
-# order.
-immutable IterativeTreeIntersectionIterator{K, V1, B1, V2, B2}
+type IntersectionIterator{K, V1, B1, V2, B2}
     t1::IntervalBTree{K, V1, B1}
     t2::IntervalBTree{K, V2, B2}
-end
 
+    # if true, use successive intersection, if false iterative.
+    successive::Bool
 
-immutable IterativeTreeIntersectionIteratorState{K, V1, B1, V2, B2}
+    # true if done
+    isdone::Bool
+
+    # successive intersection state
+    intersection::Intersection{K, V2, B2}
+    t1_state::IntervalBTreeIteratorState{K, V1, B1}
+    t1_value::V1
+
+    # iterative intersection state
     u::Nullable{LeafNode{K, V1, B1}}
     v::Nullable{LeafNode{K, V2, B2}}
     w::Nullable{LeafNode{K, V2, B2}}
     i::Int
     j::Int
     k::Int
+
+    function IntersectionIterator(t1, t2, successive::Bool)
+        return new(t1, t2, successive)
+    end
 end
 
 
-function Base.start{K, V1, B1, V2, B2}(it::IterativeTreeIntersectionIterator{K, V1, B1, V2, B2})
-    # Notation notes. We proceed by finding all the the intervals
-    # in t2 that intersect u.keys[i], before proceeding to the next
-    # key in t1.
-    #
-    # We use v to keep track of the first leaf node in t2 that might contain an
-    # intersecting interval, # and with (w, j) the current intersecting entry in
-    # t2. We need to hang onto v since we will need to jump back when the
-    # entry in t1 gets incremented.
-    #
-    # The thing to keep in mind is that this is just like the merge operation in
-    # mergesort, except that some backtracking is needed since intersection
-    # isn't as simple as ordering.
-    u = isempty(it.t1) ? Nullable{LeafNode{K, V1, B1}}() : firstleaf(it.t1)
-    v = isempty(it.t2) ? Nullable{LeafNode{K, V2, B2}}() : firstleaf(it.t2)
-    w = v
-    i, j, k = 1, 1, 1
+function Base.start{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2})
+    it.isdone = true
+    if it.successive
+        # Successive Query Intersection: intersect by repeatedly performing
+        # queries against on tree ot the other.
 
-    return nextintersection(it,
-        IterativeTreeIntersectionIteratorState{K, V1, B1, V2, B2}(u, v, w, i, j, k))
+        t1_state = start(it.t1)
+        while !done(it.t1, t1_state)
+            t1_value, t1_state = next(it.t1, t1_state)
+            intersection = firstintersection(it.t2, t1_value)
+            if intersection.index != 0
+                it.intersection = intersection
+                it.t1_state = t1_state
+                it.t1_value = t1_value
+                it.isdone = false
+                return nothing
+            end
+        end
+    else
+        # Iterative Intersection: Intersect by iterating through the two
+        # collections in unison.
+        #
+        # Notation notes. We proceed by finding all the the intervals
+        # in t2 that intersect u.keys[i], before proceeding to the next
+        # key in t1.
+        #
+        # We use v to keep track of the first leaf node in t2 that might contain an
+        # intersecting interval, # and with (w, j) the current intersecting entry in
+        # t2. We need to hang onto v since we will need to jump back when the
+        # entry in t1 gets incremented.
+        #
+        # The thing to keep in mind is that this is just like the merge operation in
+        # mergesort, except that some backtracking is needed since intersection
+        # isn't as simple as ordering.
+
+        it.u = isempty(it.t1) ? Nullable{LeafNode{K, V1, B1}}() : firstleaf(it.t1)
+        it.v = isempty(it.t2) ? Nullable{LeafNode{K, V2, B2}}() : firstleaf(it.t2)
+        it.w = it.v
+        it.i, it.j, it.k = 1, 1, 1
+        nextintersection!(it)
+    end
+    return nothing
 end
 
 
-function nextintersection{K, V1, B1, V2, B2}(it::IterativeTreeIntersectionIterator{K, V1, B1, V2, B2},
-                                             state::IterativeTreeIntersectionIteratorState{K, V1, B1, V2, B2})
-    u, v, w, i, j, k = state.u, state.v, state.w, state.i, state.j, state.k
+function nextintersection!{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2})
+    u, v, w, i, j, k = it.u, it.v, it.w, it.i, it.j, it.k
+    it.isdone = true
     while !isnull(u) && !isnull(v)
         unode = get(u)
         vnode = get(v)
@@ -1215,6 +1248,7 @@ function nextintersection{K, V1, B1, V2, B2}(it::IterativeTreeIntersectionIterat
             v, j = nextleafkey(vnode, j)
         elseif first(wnode.entries[k]) <= last(unode.entries[i])
             if intersects(unode.entries[i], wnode.entries[k])
+                it.isdone = false
                 break
             end
             w, k = nextleafkey(wnode, k)
@@ -1224,87 +1258,48 @@ function nextintersection{K, V1, B1, V2, B2}(it::IterativeTreeIntersectionIterat
         end
     end
 
-    return IterativeTreeIntersectionIteratorState{K, V1, B1, V2, B2}(u, v, w, i, j, k)
+    it.u = u
+    it.v = v
+    it.w = w
+    it.i = i
+    it.j = j
+    it.k = k
+    return
 end
 
 
-function Base.next{K, V1, B1, V2, B2}(it::IterativeTreeIntersectionIterator{K, V1, B1, V2, B2},
-                                      state::IterativeTreeIntersectionIteratorState{K, V1, B1, V2, B2})
-    u, v, w, i, j, k = get(state.u), get(state.v), get(state.w), state.i, state.j, state.k
-    value = (u.entries[i], w.entries[k])
-    w, k = nextleafkey(w, k)
-    nextstate = nextintersection(it,
-        IterativeTreeIntersectionIteratorState{K, V1, B1, V2, B2}(u, v, w, i, j, k))
-    return (value, nextstate)
-end
+function Base.next{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2}, state)
+    if it.successive
+        intersection = it.intersection
+        entry = intersection.node.entries[intersection.index]
+        value = (it.t1_value, entry)
+        intersection = nextintersection(intersection.node, intersection.index, it.t1_value)
 
-
-function Base.done{K, V1, B1, V2, B2}(it::IterativeTreeIntersectionIterator{K, V1, B1, V2, B2},
-                                      state::IterativeTreeIntersectionIteratorState{K, V1, B1, V2, B2})
-    return isnull(state.u) || isnull(state.v)
-end
-
-
-# Iterate through the intersection of two interval trees by doing single
-# interval queries against t2 for every key in t1.
-immutable SuccessiveTreeIntersectionIterator{K, V1, B1, V2, B2}
-    t1::IntervalBTree{K, V1, B1}
-    t2::IntervalBTree{K, V2, B2}
-    reversed::Bool
-end
-
-
-immutable SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2}
-    intersection::Intersection{K, V2, B2}
-    t1_state::IntervalBTreeIteratorState{K, V1, B1}
-    t1_value::V1
-
-    function SuccessiveTreeIntersectionIteratorState(intersection, t1_state, t1_value)
-        return new(intersection, t1_state, t1_value)
-    end
-
-    function SuccessiveTreeIntersectionIteratorState()
-        return new(Intersection{K, V2, B2}())
-    end
-end
-
-
-function Base.start{K, V1, B1, V2, B2}(it::SuccessiveTreeIntersectionIterator{K, V1, B1, V2, B2})
-    t1_state = start(it.t1)
-    while !done(it.t1, t1_state)
-        t1_value, t1_state = next(it.t1, t1_state)
-        intersection = firstintersection(it.t2, t1_value)
-        if intersection.index != 0
-            return SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2}(
-                        intersection, t1_state, t1_value)
+        t1 = it.t1
+        t2 = it.t2
+        t1_state = it.t1_state
+        t1_value = it.t1_value
+        while intersection.index == 0 && !done(t1, t1_state)
+            t1_value, t1_state = next(t1, t1_state)
+            intersection = firstintersection(t2, t1_value)
         end
+        it.isdone = intersection.index == 0
+        it.intersection = intersection
+        it.t1_state = t1_state
+        it.t1_value = t1_value
+    else
+        u = get(it.u)
+        w = get(it.w)
+        value = (u.entries[it.i], w.entries[it.k])
+        it.w, it.k = nextleafkey(w, it.k)
+        nextintersection!(it)
     end
-
-    return SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2}()
+    return (value, nothing)
 end
 
 
-function Base.next{K, V1, B1, V2, B2}(it::SuccessiveTreeIntersectionIterator{K, V1, B1, V2, B2},
-                                      state::SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2})
-    intersection = state.intersection
-    entry = intersection.node.entries[intersection.index]
-    return_value = it.reversed ? (entry, state.t1_value) : (state.t1_value, entry)
-    t1_state = state.t1_state
-    t1_value = state.t1_value
-    intersection = nextintersection(intersection.node, intersection.index, t1_value)
-    while intersection.index == 0 && !done(it.t1, t1_state)
-        t1_value, t1_state = next(it.t1, t1_state)
-        intersection = firstintersection(it.t2, t1_value)
-    end
-
-    return return_value, SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2}(
-            intersection, t1_state, t1_value)
-end
-
-
-function Base.done{K, V1, B1, V2, B2}(it::SuccessiveTreeIntersectionIterator{K, V1, B1, V2, B2},
-                                      state::SuccessiveTreeIntersectionIteratorState{K, V1, B1, V2, B2})
-    return state.intersection.index == 0
+function Base.done{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2}, state)
+    return it.isdone
 end
 
 
@@ -1315,23 +1310,31 @@ end
 # Where key1 is from the first tree and key2 from the second, and they
 # intersect.
 function Base.intersect{K, V1, B1, V2, B2}(t1::IntervalBTree{K, V1, B1},
-                                           t2::IntervalBTree{K, V2, B2})
+                                           t2::IntervalBTree{K, V2, B2};
+                                           method=:auto)
     # We decide heuristically which intersection algorithm to use.
     n = length(t1)
     m = length(t2)
 
-    cost1 = n + m
-    cost2 = n * log(1 + m)
-    cost3 = m * log(1 + n)
-    if cost1 <= cost2 <= cost3
-        return IterativeTreeIntersectionIterator(t1, t2)
-    elseif cost2 <= cost3
-        return SuccessiveTreeIntersectionIterator(t1, t2, false)
+    iterative_cost  = n + m
+    successive_cost = n * log(1 + m)
+
+    if method == :auto
+        iterative_cost  = n + m
+        successive_cost = n * log(1 + m)
+        if iterative_cost < successive_cost
+            return IntersectionIterator{K, V1, B1, V2, B2}(t1, t2, false)
+        else
+            return IntersectionIterator{K, V1, B1, V2, B2}(t1, t2, true)
+        end
+    elseif method == :successive
+        return IntersectionIterator{K, V1, B1, V2, B2}(t1, t2, true)
+    elseif method == :iterative
+        return IntersectionIterator{K, V1, B1, V2, B2}(t1, t2, false)
     else
-        return SuccessiveTreeIntersectionIterator(t2, t1, true)
+        error("No such intersection method: $method")
     end
 end
-
 
 
 # Diagnostics
