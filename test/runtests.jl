@@ -161,22 +161,22 @@ facts("Search") do
         end
 
         shuffle!(intervals)
-        @fact all([haskey(t, interval) for interval in intervals]) => true
-        @fact all([get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1)
-                   for interval in intervals]) => true
-        @fact all([get(t, interval, -1) != -1 for interval in intervals]) => true
+        @fact all(Bool[haskey(t, interval) for interval in intervals]) => true
+        @fact all(Bool[get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1)
+                       for interval in intervals]) => true
+        @fact all(Bool[get(t, interval, -1) != -1 for interval in intervals]) => true
     end
 
     context("true negatives") do
-        @fact all([!haskey(t, interval)
-                   for interval in [randinterval(maxend+1, 2 * maxend)
-                                    for i in 1:n]]) => true
-        @fact all([get!(t, interval, -1) == IntervalValue{Int, Int}(interval[1], interval[2], -1)
-                   for interval in [randinterval(maxend+1, 2 * maxend)
-                                    for i in 1:n]]) => true
-        @fact all([get(t, interval, -1) == -1
-                   for interval in [randinterval(maxend+1, 2 * maxend)
-                                    for i in 1:n]]) => true
+        @fact all(Bool[!haskey(t, interval)
+                       for interval in [randinterval(maxend+1, 2 * maxend)
+                                        for i in 1:n]]) => true
+        @fact all(Bool[get!(t, interval, -1) == IntervalValue{Int, Int}(interval[1], interval[2], -1)
+                       for interval in [randinterval(maxend+1, 2 * maxend)
+                                        for i in 1:n]]) => true
+        @fact all(Bool[get(t, interval, -1) == -1
+                       for interval in [randinterval(maxend+1, 2 * maxend)
+                                        for i in 1:n]]) => true
     end
 end
 
@@ -231,8 +231,8 @@ facts("Interval Intersection") do
     # everything
     @fact length(collect(intersect(t, (intervals[1][1], intervals[end][2])))) => length(t)
 
-    @fact all([hasintersection(t, interval[1]) for interval in intervals]) => true
-    @fact all([hasintersection(t, interval[end]) for interval in intervals]) => true
+    @fact all(Bool[hasintersection(t, interval[1]) for interval in intervals]) => true
+    @fact all(Bool[hasintersection(t, interval[end]) for interval in intervals]) => true
 
     # some random intersection queries
     function random_intersection_query()
@@ -241,7 +241,7 @@ facts("Interval Intersection") do
         return length(collect(intersect(t, (intervals[i][1], intervals[j][2])))) == j - i + 1
     end
 
-    @fact all([random_intersection_query() for _ in 1:1000]) => true
+    @fact all(Bool[random_intersection_query() for _ in 1:1000]) => true
 
     # intervals separated by 1
     t = IntervalMap{Int, Int}()
@@ -262,10 +262,10 @@ facts("Interval Intersection") do
         a = b + 1
     end
 
-    @fact all([hasintersection(t, interval[1]) for interval in intervals]) => true
-    @fact all([hasintersection(t, interval[end]) for interval in intervals]) => true
-    @fact all([hasintersection(t, interval[1]) for interval in gaps]) => false
-    @fact all([hasintersection(t, interval[end]) for interval in gaps]) => false
+    @fact all(Bool[hasintersection(t, interval[1]) for interval in intervals]) => true
+    @fact all(Bool[hasintersection(t, interval[end]) for interval in intervals]) => true
+    @fact all(Bool[hasintersection(t, interval[1]) for interval in gaps]) => false
+    @fact all(Bool[hasintersection(t, interval[end]) for interval in gaps]) => false
 end
 
 
@@ -279,7 +279,7 @@ facts("Nonunique") do
     push!(t, IntervalValue{Int, Int}(1, 1, n + 2))
     push!(t, IntervalValue{Int, Int}(200, 200, n + 3))
 
-    @fact length(collect(t)) == length(t) == n + 3 => true
+    @fact (length(collect(t)) == length(t) == n + 3) => true
     @fact issorted(collect(keys(t))) => true
     @fact validkeys(t) => true
     @fact validparents(t) => true
@@ -308,7 +308,7 @@ facts("Tree Intersection") do
     # testing by checking that they are in agreement.
     a = intersect(t1, t2, method=:successive)
     b = intersect(t1, t2, method=:iterative)
-    @fact collect(a) == collect(b) => true
+    @fact (collect(a) == collect(b)) => true
 
     ## handle a particular intersection case that may not otherwise get hit
     t1 = IntervalMap{Int, Int}()
@@ -366,9 +366,9 @@ facts("Insertion") do
         sort!(intervals)
         t = IntervalMap{Int, Int}(intervals)
 
-        @fact collect(keys(t)) == [Interval{Int}(interval.first, interval.last)
-                                   for interval in intervals] => true
-        @fact collect(values(t)) == [interval.value for interval in intervals] => true
+        @fact (collect(keys(t)) == [Interval{Int}(interval.first, interval.last)
+                                    for interval in intervals]) => true
+        @fact (collect(values(t)) == [interval.value for interval in intervals]) => true
         @fact issorted(collect(keys(t))) => true
         @fact validkeys(t) => true
         @fact validparents(t) => true
@@ -432,7 +432,7 @@ facts("Deletion") do
     @fact validsiblings(t) => true
     @fact issorted(collect(keys(t))) => true
     @fact haskey(t, interval) => false
-    @fact all(map(interval -> haskey(t, interval), intervals)) => true
+    @fact all(interval -> haskey(t, interval), intervals) => true
 
     # delete a random 50%
     for interval in 1:(n-1)/2
@@ -443,7 +443,7 @@ facts("Deletion") do
     @fact validparents(t) => true
     @fact validsiblings(t) => true
     @fact issorted(collect(keys(t))) => true
-    @fact all(map(interval -> haskey(t, interval), intervals)) => true
+    @fact all(interval -> haskey(t, interval), intervals) => true
 
     # delete the rest
     for interval in intervals
