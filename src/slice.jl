@@ -33,6 +33,12 @@ function Base.getindex{T, N}(s::Slice{T, N}, i::Integer)
 end
 
 
+@inline function unsafe_getindex{T, N}(s::Slice{T, N}, i::Integer)
+    @inbounds x = s.data[i]
+    return x
+end
+
+
 function Base.setindex!{T, N}(s::Slice{T, N}, value, i::Integer)
     if 1 <= i <= s.n
         @inbounds s.data[i] = value

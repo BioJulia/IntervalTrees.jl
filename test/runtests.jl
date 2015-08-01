@@ -12,11 +12,11 @@ import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
 facts("Getters") do
     i = Interval(5, 6)
     iv = IntervalValue(10, 11, "FOO")
-    @fact first(i)  => 5
-    @fact last(i)   => 6
-    @fact first(iv) => 10
-    @fact last(iv)  => 11
-    @fact value(iv) => "FOO"
+    @fact first(i)  --> 5
+    @fact last(i)   --> 6
+    @fact first(iv) --> 10
+    @fact last(iv)  --> 11
+    @fact value(iv) --> "FOO"
 end
 
 # Generating random intervals
@@ -149,7 +149,7 @@ end
 
 facts("Search") do
     t = IntervalMap{Int, Int}()
-    @fact haskey(t, (1,2)) => false
+    @fact haskey(t, (1,2)) --> false
 
     n = 10000
     maxend = 1000000
@@ -161,29 +161,29 @@ facts("Search") do
         end
 
         shuffle!(intervals)
-        @fact all(Bool[haskey(t, interval) for interval in intervals]) => true
+        @fact all(Bool[haskey(t, interval) for interval in intervals]) --> true
         @fact all(Bool[get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1)
-                       for interval in intervals]) => true
-        @fact all(Bool[get(t, interval, -1) != -1 for interval in intervals]) => true
+                       for interval in intervals]) --> true
+        @fact all(Bool[get(t, interval, -1) != -1 for interval in intervals]) --> true
     end
 
     context("true negatives") do
         @fact all(Bool[!haskey(t, interval)
                        for interval in [randinterval(maxend+1, 2 * maxend)
-                                        for i in 1:n]]) => true
+                                        for i in 1:n]]) --> true
         @fact all(Bool[get!(t, interval, -1) == IntervalValue{Int, Int}(interval[1], interval[2], -1)
                        for interval in [randinterval(maxend+1, 2 * maxend)
-                                        for i in 1:n]]) => true
+                                        for i in 1:n]]) --> true
         @fact all(Bool[get(t, interval, -1) == -1
                        for interval in [randinterval(maxend+1, 2 * maxend)
-                                        for i in 1:n]]) => true
+                                        for i in 1:n]]) --> true
     end
 end
 
 
 facts("Iteration") do
     t = IntervalMap{Int, Int}()
-    @fact isempty([x for x in t]) => true
+    @fact isempty([x for x in t]) --> true
 
     context("from") do
         n = 100
@@ -199,10 +199,10 @@ facts("Iteration") do
             end
         end
 
-        @fact length(collect(from(t, startpos))) => expected_count
-        @fact length(collect(from(t, 0))) => n
-        @fact length(collect(from(t, maxend + 1))) => 0
-        @fact length(collect(from(IntervalTree{Int, Int}(), 0))) => 0
+        @fact length(collect(from(t, startpos))) --> expected_count
+        @fact length(collect(from(t, 0))) --> n
+        @fact length(collect(from(t, maxend + 1))) --> 0
+        @fact length(collect(from(IntervalTree{Int, Int}(), 0))) --> 0
     end
 end
 
@@ -221,18 +221,18 @@ facts("Interval Intersection") do
 
     # one
     x = rand(0:a-1)
-    @fact length(collect(intersect(t, (x, x)))) => 1
-    @fact hasintersection(t, x) => true
+    @fact length(collect(intersect(t, (x, x)))) --> 1
+    @fact hasintersection(t, x) --> true
 
     # nothing
-    @fact length(collect(intersect(t, (a, a)))) => 0
-    @fact hasintersection(t, a) => false
+    @fact length(collect(intersect(t, (a, a)))) --> 0
+    @fact hasintersection(t, a) --> false
 
     # everything
-    @fact length(collect(intersect(t, (intervals[1][1], intervals[end][2])))) => length(t)
+    @fact length(collect(intersect(t, (intervals[1][1], intervals[end][2])))) --> length(t)
 
-    @fact all(Bool[hasintersection(t, interval[1]) for interval in intervals]) => true
-    @fact all(Bool[hasintersection(t, interval[end]) for interval in intervals]) => true
+    @fact all(Bool[hasintersection(t, interval[1]) for interval in intervals]) --> true
+    @fact all(Bool[hasintersection(t, interval[end]) for interval in intervals]) --> true
 
     # some random intersection queries
     function random_intersection_query()
@@ -241,12 +241,12 @@ facts("Interval Intersection") do
         return length(collect(intersect(t, (intervals[i][1], intervals[j][2])))) == j - i + 1
     end
 
-    @fact all(Bool[random_intersection_query() for _ in 1:1000]) => true
+    @fact all(Bool[random_intersection_query() for _ in 1:1000]) --> true
 
     # intervals separated by 1
     t = IntervalMap{Int, Int}()
 
-    @fact hasintersection(t, 1) => false
+    @fact hasintersection(t, 1) --> false
 
     intervals = Any[]
     gaps = Any[]
@@ -262,10 +262,10 @@ facts("Interval Intersection") do
         a = b + 1
     end
 
-    @fact all(Bool[hasintersection(t, interval[1]) for interval in intervals]) => true
-    @fact all(Bool[hasintersection(t, interval[end]) for interval in intervals]) => true
-    @fact all(Bool[hasintersection(t, interval[1]) for interval in gaps]) => false
-    @fact all(Bool[hasintersection(t, interval[end]) for interval in gaps]) => false
+    @fact all(Bool[hasintersection(t, interval[1]) for interval in intervals]) --> true
+    @fact all(Bool[hasintersection(t, interval[end]) for interval in intervals]) --> true
+    @fact all(Bool[hasintersection(t, interval[1]) for interval in gaps]) --> false
+    @fact all(Bool[hasintersection(t, interval[end]) for interval in gaps]) --> false
 end
 
 
@@ -279,11 +279,11 @@ facts("Nonunique") do
     push!(t, IntervalValue{Int, Int}(1, 1, n + 2))
     push!(t, IntervalValue{Int, Int}(200, 200, n + 3))
 
-    @fact (length(collect(t)) == length(t) == n + 3) => true
-    @fact issorted(collect(keys(t))) => true
-    @fact validkeys(t) => true
-    @fact validparents(t) => true
-    @fact validsiblings(t) => true
+    @fact (length(collect(t)) == length(t) == n + 3) --> true
+    @fact issorted(collect(keys(t))) --> true
+    @fact validkeys(t) --> true
+    @fact validparents(t) --> true
+    @fact validsiblings(t) --> true
 end
 
 
@@ -308,15 +308,15 @@ facts("Tree Intersection") do
     # testing by checking that they are in agreement.
     a = intersect(t1, t2, method=:successive)
     b = intersect(t1, t2, method=:iterative)
-    @fact (collect(a) == collect(b)) => true
+    @fact (collect(a) == collect(b)) --> true
 
     ## handle a particular intersection case that may not otherwise get hit
     t1 = IntervalMap{Int, Int}()
     t1[(1, 2)] = 1
     t2 = IntervalMap{Int, Int}()
     t2[(1001, 1002)] = 2
-    @fact isempty(collect(intersect(t1, t2, method=:iterative))) => true
-    @fact isempty(collect(intersect(t1, t2, method=:successive))) => true
+    @fact isempty(collect(intersect(t1, t2, method=:iterative))) --> true
+    @fact isempty(collect(intersect(t1, t2, method=:successive))) --> true
 end
 
 
@@ -329,10 +329,10 @@ facts("Insertion") do
             k = randinterval()
             t[k] = v
         end
-        @fact issorted(collect(keys(t))) => true
-        @fact validkeys(t) => true
-        @fact validparents(t) => true
-        @fact validsiblings(t) => true
+        @fact issorted(collect(keys(t))) --> true
+        @fact validkeys(t) --> true
+        @fact validparents(t) --> true
+        @fact validsiblings(t) --> true
     end
 
     context("ordered insertions") do
@@ -340,10 +340,10 @@ facts("Insertion") do
             k = (v,rand(v:maxend))
             t[k] = v
         end
-        @fact issorted(collect(keys(t))) => true
-        @fact validkeys(t) => true
-        @fact validparents(t) => true
-        @fact validsiblings(t) => true
+        @fact issorted(collect(keys(t))) --> true
+        @fact validkeys(t) --> true
+        @fact validparents(t) --> true
+        @fact validsiblings(t) --> true
     end
 
     context("reverse ordered insertions") do
@@ -351,10 +351,10 @@ facts("Insertion") do
             k = (maxend-v,rand((maxend-v):maxend))
             t[k] = v
         end
-        @fact issorted(collect(keys(t))) => true
-        @fact validkeys(t) => true
-        @fact validparents(t) => true
-        @fact validsiblings(t) => true
+        @fact issorted(collect(keys(t))) --> true
+        @fact validkeys(t) --> true
+        @fact validparents(t) --> true
+        @fact validsiblings(t) --> true
     end
 
     context("bulk insertion") do
@@ -367,19 +367,19 @@ facts("Insertion") do
         t = IntervalMap{Int, Int}(intervals)
 
         @fact (collect(keys(t)) == [Interval{Int}(interval.first, interval.last)
-                                    for interval in intervals]) => true
-        @fact (collect(values(t)) == [interval.value for interval in intervals]) => true
-        @fact issorted(collect(keys(t))) => true
-        @fact validkeys(t) => true
-        @fact validparents(t) => true
-        @fact validsiblings(t) => true
+                                    for interval in intervals]) --> true
+        @fact (collect(values(t)) == [interval.value for interval in intervals]) --> true
+        @fact issorted(collect(keys(t))) --> true
+        @fact validkeys(t) --> true
+        @fact validparents(t) --> true
+        @fact validsiblings(t) --> true
 
         # don't break on empty arrays
         t = IntervalMap{Int, Int}(IntervalValue{Int, Int}[])
-        @fact issorted(collect(keys(t))) => true
-        @fact validkeys(t) => true
-        @fact validparents(t) => true
-        @fact validsiblings(t) => true
+        @fact issorted(collect(keys(t))) --> true
+        @fact validkeys(t) --> true
+        @fact validparents(t) --> true
+        @fact validsiblings(t) --> true
 
         @fact_throws IntervalTree{Int, Int}(intervals, Int[1])
         shuffle!(intervals)
@@ -401,10 +401,10 @@ facts("Updates") do
         t[k] = v
     end
 
-    @fact issorted(collect(keys(t))) => true
-    @fact validkeys(t) => true
-    @fact validparents(t) => true
-    @fact validsiblings(t) => true
+    @fact issorted(collect(keys(t))) --> true
+    @fact validkeys(t) --> true
+    @fact validparents(t) --> true
+    @fact validsiblings(t) --> true
 end
 
 
@@ -422,37 +422,37 @@ facts("Deletion") do
     shuffle!(intervals)
 
     # delete non-existant is a nop
-    @fact delete!(t, (-1, -1)).n => n
+    @fact delete!(t, (-1, -1)).n --> n
 
     # delete one
     interval = pop!(intervals)
     delete!(t, interval)
-    @fact validkeys(t) => true
-    @fact validparents(t) => true
-    @fact validsiblings(t) => true
-    @fact issorted(collect(keys(t))) => true
-    @fact haskey(t, interval) => false
-    @fact all(interval -> haskey(t, interval), intervals) => true
+    @fact validkeys(t) --> true
+    @fact validparents(t) --> true
+    @fact validsiblings(t) --> true
+    @fact issorted(collect(keys(t))) --> true
+    @fact haskey(t, interval) --> false
+    @fact all(interval -> haskey(t, interval), intervals) --> true
 
     # delete a random 50%
     for interval in 1:(n-1)/2
         interval = pop!(intervals)
         delete!(t, interval)
     end
-    @fact validkeys(t) => true
-    @fact validparents(t) => true
-    @fact validsiblings(t) => true
-    @fact issorted(collect(keys(t))) => true
-    @fact all(interval -> haskey(t, interval), intervals) => true
+    @fact validkeys(t) --> true
+    @fact validparents(t) --> true
+    @fact validsiblings(t) --> true
+    @fact issorted(collect(keys(t))) --> true
+    @fact all(interval -> haskey(t, interval), intervals) --> true
 
     # delete the rest
     for interval in intervals
         delete!(t, interval)
     end
-    @fact isempty(t) => true
-    @fact validkeys(t) => true
-    @fact validparents(t) => true
-    @fact validsiblings(t) => true
+    @fact isempty(t) --> true
+    @fact validkeys(t) --> true
+    @fact validparents(t) --> true
+    @fact validsiblings(t) --> true
 
     # delete left-to-right
     shuffle!(intervals)
@@ -463,10 +463,10 @@ facts("Deletion") do
     for interval in intervals
         delete!(t, interval)
     end
-    @fact isempty(t) => true
-    @fact validkeys(t) => true
-    @fact validparents(t) => true
-    @fact validsiblings(t) => true
+    @fact isempty(t) --> true
+    @fact validkeys(t) --> true
+    @fact validparents(t) --> true
+    @fact validsiblings(t) --> true
 
     # delete right-to-left
     shuffle!(intervals)
@@ -477,10 +477,10 @@ facts("Deletion") do
     for interval in intervals
         delete!(t, interval)
     end
-    @fact isempty(t) => true
-    @fact validkeys(t) => true
-    @fact validparents(t) => true
-    @fact validsiblings(t) => true
+    @fact isempty(t) --> true
+    @fact validkeys(t) --> true
+    @fact validparents(t) --> true
+    @fact validsiblings(t) --> true
 
     # delete from the middle
     shuffle!(intervals)
@@ -494,10 +494,10 @@ facts("Deletion") do
     for i in mid:-1:1
         delete!(t, intervals[i])
     end
-    @fact isempty(t) => true
-    @fact validkeys(t) => true
-    @fact validparents(t) => true
-    @fact validsiblings(t) => true
+    @fact isempty(t) --> true
+    @fact validkeys(t) --> true
+    @fact validparents(t) --> true
+    @fact validsiblings(t) --> true
 
     # contrive a special case: merge with the left when we have a non-null
     # right
@@ -505,18 +505,18 @@ facts("Deletion") do
     for i in 1:24
         t[(i, i)] = i
     end
-    @fact isa(t.root, InternalNode) => true
-    @fact length(t.root.children) => 3
-    @fact length(t.root.children[2].children) => 2
+    @fact isa(t.root, InternalNode) --> true
+    @fact length(t.root.children) --> 3
+    @fact length(t.root.children[2].children) --> 2
     delete!(t, (15, 15))
     keys_to_delete = collect(keys(t))
     for key in keys_to_delete
         delete!(t, key)
     end
-    @fact isempty(t) => true
-    @fact validkeys(t) => true
-    @fact validparents(t) => true
-    @fact validsiblings(t) => true
+    @fact isempty(t) --> true
+    @fact validkeys(t) --> true
+    @fact validparents(t) --> true
+    @fact validsiblings(t) --> true
 end
 
 
@@ -550,15 +550,19 @@ facts("Low Level") do
     B = 32
     x = Interval{Int}(1, 1)
     node = InternalNode{K, V, B}()
-    @fact IntervalTrees.findidx(node, x) => 0
-    @fact IntervalTrees.firstfrom(node, 1) => (node, 0)
+    @fact IntervalTrees.findidx(node, x) --> 0
+    @fact IntervalTrees.firstfrom(node, 1) --> (node, 0)
     node = LeafNode{K, V, B}()
-    @fact IntervalTrees.findidx(node, x) => 0
-    @fact IntervalTrees.firstintersection(node, x) => IntervalTrees.Intersection{K, V, B}()
-    @fact IntervalTrees.firstfrom(node, 1) => (node, 0)
+    @fact IntervalTrees.findidx(node, x) --> 0
+
+    result = IntervalTrees.Intersection{K, V, B}()
+    IntervalTrees.firstintersection!(node, x, result)
+    @fact result.index --> 0
+
+    @fact IntervalTrees.firstfrom(node, 1) --> (node, 0)
 
     push!(node.entries, IntervalValue{Int, Int}(1, 1, 1))
-    @fact IntervalTrees.firstfrom(node, 2) => (node, 0)
+    @fact IntervalTrees.firstfrom(node, 2) --> (node, 0)
 
     # test that delete! still works on a contrived tree with one internal and
     # one leaf node
@@ -568,13 +572,13 @@ facts("Low Level") do
     push!(t.root.keys, x)
     push!(t.root.children[1].entries, IntervalValue{Int, Int}(1, 1, 1))
     delete!(t, (1,1))
-    @fact isa(t.root, LeafNode) => true
+    @fact isa(t.root, LeafNode) --> true
 
     ## test that the right thing happens if you delete the last key in a non-root
     ## leaf node (which can't actually happen)
     node = LeafNode{Int, IntervalValue{Int}, 32}()
     push!(node.entries, IntervalValue{Int, Int}(1, 1, 1))
-    @fact IntervalTrees.findidx(node, x) => 1
+    @fact IntervalTrees.findidx(node, x) --> 1
 end
 
 exitstatus()
