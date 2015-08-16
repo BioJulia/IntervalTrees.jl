@@ -1145,9 +1145,17 @@ end
 
 
 type IntervalIntersectionIterator{K, V, B}
+    intersection::Intersection{K, V, B}
     t::IntervalBTree{K, V, B}
     query::AbstractInterval{K}
-    intersection::Intersection{K, V, B}
+
+    function IntervalIntersectionIterator(intersection, t, query)
+        return new(intersection, t, query)
+    end
+
+    function IntervalIntersectionIterator()
+        return new(Intersection{K, V, B}())
+    end
 end
 
 
@@ -1166,7 +1174,7 @@ end
 
 
 function Base.intersect{K, V, B}(t::IntervalBTree{K, V, B}, query::AbstractInterval{K})
-    return IntervalIntersectionIterator(t, query, Intersection{K, V, B}())
+    return IntervalIntersectionIterator{K, V, B}(Intersection{K, V, B}(), t, query)
 end
 
 
