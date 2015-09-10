@@ -1,7 +1,9 @@
 
 # IntervalTrees
 
-[![Build Status](https://api.travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/BioJulia/IntervalTrees.jl) [![Coverage Status](https://img.shields.io/coveralls/BioJulia/IntervalTrees.jl.svg)](https://coveralls.io/r/BioJulia/IntervalTrees.jl?branch=master)
+[![Build Status](https://api.travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/BioJulia/IntervalTrees.jl)
+[![Coverage Status](https://img.shields.io/coveralls/BioJulia/IntervalTrees.jl.svg)](https://coveralls.io/r/BioJulia/IntervalTrees.jl?branch=master)
+[![codecov.io](http://codecov.io/github/BioJulia/IntervalTrees.jl/coverage.svg?branch=master)](http://codecov.io/github/BioJulia/IntervalTrees.jl?branch=master)
 
 ## API
 
