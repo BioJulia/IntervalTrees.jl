@@ -658,7 +658,7 @@ end
 
 # Indicate what steps are need to account for an updated child.
 immutable KeyFate
-    value::Uint8
+    value::UInt8
 end
 
 const KEYFATE_NONE         = KeyFate(0) # no changes
@@ -1183,7 +1183,7 @@ function Base.start{K, V, B}(it::IntervalIntersectionIterator{K, V, B})
 end
 
 
-function Base.next{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::Nothing)
+function Base.next{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::(@compat Void))
     intersection = it.intersection
     entry = intersection.node.entries[intersection.index]
     nextintersection!(intersection.node, intersection.index,
@@ -1192,7 +1192,7 @@ function Base.next{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::Nothing
 end
 
 
-function Base.done{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::Nothing)
+function Base.done{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::(@compat Void))
     return it.intersection.index == 0
 end
 
