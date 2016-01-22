@@ -1,4 +1,3 @@
-
 # IntervalTree map operations
 
 typealias IntervalMap{K, V} IntervalTree{K, IntervalValue{K, V}}

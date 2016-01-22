@@ -1,4 +1,3 @@
-
 # This is very simple implementation of go-style slices. Nodes in the B-tree
 # have fixed sized arrays that change when elements are inserted or deleted.
 # We would like for those to behave as though they are resized without actually

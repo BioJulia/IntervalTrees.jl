@@ -1,5 +1,3 @@
-
-
 module IntervalTrees
 
 using Compat, Docile
