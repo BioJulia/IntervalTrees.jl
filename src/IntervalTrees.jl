@@ -5,7 +5,7 @@ using Docile: @doc
 
 import Base: first, last
 
-export IntervalTree, IntervalMap, AbstractInterval, Interval, IntervalValue, depth,
+export IntervalTree, IntervalMap, AbstractInterval, Interval, IntervalValue, Intersection, depth,
        hasintersection, from, first, last, print, show, value
 
 include("slice.jl")
