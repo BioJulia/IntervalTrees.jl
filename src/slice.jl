@@ -27,7 +27,7 @@ function Base.getindex{T, N}(s::Slice{T, N}, i::Integer)
         @inbounds x = s.data[i]
         return x
     else
-        throw(BoundsError)
+        throw(BoundsError())
     end
 end
 
@@ -43,7 +43,7 @@ function Base.setindex!{T, N}(s::Slice{T, N}, value, i::Integer)
         @inbounds s.data[i] = value
         return value
     else
-        throw(BoundsError)
+        throw(BoundsError())
     end
 end
 
@@ -64,7 +64,7 @@ function Base.pop!{T, N}(s::Slice{T, N})
         s.n -= 1
         return x
     else
-        throw(BoundsError)
+        throw(BoundsError())
     end
 end
 
@@ -84,7 +84,7 @@ function Base.insert!{T, N}(s::Slice{T, N}, i::Integer, value)
         s.n += 1
         return s
     else
-        throw(BoundsError)
+        throw(BoundsError())
     end
 end
 
@@ -94,7 +94,7 @@ function Base.resize!{T, N}(s::Slice{T, N}, n::Integer)
         s.n = n
         return s
     else
-        throw(BoundsError)
+        throw(BoundsError())
     end
 end
 
@@ -108,7 +108,7 @@ function Base.splice!{T, N}(s::Slice{T, N}, i::Integer)
         s.n -= 1
         return x
     else
-        throw(BoundsError)
+        throw(BoundsError())
     end
 end
 
