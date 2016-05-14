@@ -1413,5 +1413,13 @@ end
 
 include("map.jl")
 
+if VERSION > v"0.5-"
+    Base.iteratorsize(::IntervalFromIterator)         = Base.SizeUnknown()
+    Base.iteratorsize(::IntervalIntersectionIterator) = Base.SizeUnknown()
+    Base.iteratorsize(::IntersectionIterator)         = Base.SizeUnknown()
+    Base.iteratorsize(::IntervalKeyIterator)          = Base.SizeUnknown()
+    Base.iteratorsize(::IntervalValueIterator)        = Base.SizeUnknown()
+end
+
 end
 
