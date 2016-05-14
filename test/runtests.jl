@@ -539,8 +539,7 @@ end
     end
 
     @test_throws BoundsError push!(xs, 11)
-    # this test is not intended, I think...
-    #@test_throws BoundsError insert!(xs, 11)
+    @test_throws BoundsError insert!(xs, 11, 1)
     @test_throws BoundsError resize!(xs, 11)
     @test_throws BoundsError splice!(xs, 0)
     @test_throws BoundsError splice!(xs, 11)
