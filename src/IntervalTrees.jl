@@ -1,7 +1,6 @@
 module IntervalTrees
 
-using Compat, Docile
-using Docile: @doc
+using Compat
 
 import Base: first, last
 
@@ -11,16 +10,16 @@ export IntervalTree, IntervalMap, AbstractInterval, Interval, IntervalValue, dep
 include("slice.jl")
 
 
-@doc """
+"""
 An AbstractInterval{T} must have a `first` and `last` function each returning
 a value of type T, and `first(i) <= last(i)` must always be true.
-""" ->
+"""
 abstract AbstractInterval{T}
 
 
-@doc """
+"""
 A basic interval.
-""" ->
+"""
 immutable Interval{T} <: AbstractInterval{T}
     first::T
     last::T
@@ -34,9 +33,9 @@ function Base.isless{I <: AbstractInterval, J <: AbstractInterval}(u::I, v::J)
 end
 
 
-@doc """
+"""
 An interval with some associated data.
-""" ->
+"""
 immutable IntervalValue{K, V} <: AbstractInterval{K}
     first::K
     last::K
