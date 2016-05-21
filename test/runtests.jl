@@ -1,22 +1,26 @@
 #!/usr/bin/env julia
 
-module TestIntervalTrees
+if VERSION >= v"0.5-"
+    using Base.Test
+else
+    using BaseTestNext
+    const Test = BaseTestNext
+end
 
 using Compat
-using FactCheck
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
 
 
 # Getters
-facts("Getters") do
+@testset "Getters" begin
     i = Interval(5, 6)
     iv = IntervalValue(10, 11, "FOO")
-    @fact first(i)  --> 5
-    @fact last(i)   --> 6
-    @fact first(iv) --> 10
-    @fact last(iv)  --> 11
-    @fact value(iv) --> "FOO"
+    @test first(i)  === 5
+    @test last(i)   === 6
+    @test first(iv) === 10
+    @test last(iv)  === 11
+    @test value(iv) == "FOO"
 end
 
 # Generating random intervals
@@ -147,45 +151,45 @@ function validsiblings(t::IntervalTrees.IntervalBTree)
 end
 
 
-facts("Search") do
+@testset "Search" begin
     t = IntervalMap{Int, Int}()
-    @fact haskey(t, (1,2)) --> false
+    @test !haskey(t, (1,2))
 
     n = 10000
     maxend = 1000000
     intervals = [randinterval(1, maxend) for i in 1:n]
 
-    context("true positives") do
+    @testset "true positives" begin
         for (i, interval) in enumerate(intervals)
             t[interval] = i
         end
 
         shuffle!(intervals)
-        @fact all(Bool[haskey(t, interval) for interval in intervals]) --> true
-        @fact all(Bool[get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1)
-                       for interval in intervals]) --> true
-        @fact all(Bool[get(t, interval, -1) != -1 for interval in intervals]) --> true
+        @test all(Bool[haskey(t, interval) for interval in intervals])
+        @test all(Bool[get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1)
+                       for interval in intervals])
+        @test all(Bool[get(t, interval, -1) != -1 for interval in intervals])
     end
 
-    context("true negatives") do
-        @fact all(Bool[!haskey(t, interval)
+    @testset "true negatives" begin
+        @test all(Bool[!haskey(t, interval)
                        for interval in [randinterval(maxend+1, 2 * maxend)
-                                        for i in 1:n]]) --> true
-        @fact all(Bool[get!(t, interval, -1) == IntervalValue{Int, Int}(interval[1], interval[2], -1)
+                                        for i in 1:n]])
+        @test all(Bool[get!(t, interval, -1) == IntervalValue{Int, Int}(interval[1], interval[2], -1)
                        for interval in [randinterval(maxend+1, 2 * maxend)
-                                        for i in 1:n]]) --> true
-        @fact all(Bool[get(t, interval, -1) == -1
+                                        for i in 1:n]])
+        @test all(Bool[get(t, interval, -1) == -1
                        for interval in [randinterval(maxend+1, 2 * maxend)
-                                        for i in 1:n]]) --> true
+                                        for i in 1:n]])
     end
 end
 
 
-facts("Iteration") do
+@testset "Iteration" begin
     t = IntervalMap{Int, Int}()
-    @fact isempty([x for x in t]) --> true
+    @test isempty([x for x in t])
 
-    context("from") do
+    @testset "from" begin
         n = 100
         maxend = 1000000
         intervals = [randinterval(1, maxend) for _ in 1:n]
@@ -199,15 +203,15 @@ facts("Iteration") do
             end
         end
 
-        @fact length(collect(from(t, startpos))) --> expected_count
-        @fact length(collect(from(t, 0))) --> n
-        @fact length(collect(from(t, maxend + 1))) --> 0
-        @fact length(collect(from(IntervalTree{Int, Int}(), 0))) --> 0
+        @test length(collect(from(t, startpos))) === expected_count
+        @test length(collect(from(t, 0))) === n
+        @test length(collect(from(t, maxend + 1))) === 0
+        @test length(collect(from(IntervalTree{Int, Int}(), 0))) === 0
     end
 end
 
 
-facts("Interval Intersection") do
+@testset "Interval Intersection" begin
     # generate n end-to-end intervals
     t = IntervalMap{Int, Int}()
     intervals = Any[]
@@ -221,18 +225,18 @@ facts("Interval Intersection") do
 
     # one
     x = rand(0:a-1)
-    @fact length(collect(intersect(t, (x, x)))) --> 1
-    @fact hasintersection(t, x) --> true
+    @test length(collect(intersect(t, (x, x)))) === 1
+    @test hasintersection(t, x)
 
     # nothing
-    @fact length(collect(intersect(t, (a, a)))) --> 0
-    @fact hasintersection(t, a) --> false
+    @test length(collect(intersect(t, (a, a)))) === 0
+    @test !hasintersection(t, a)
 
     # everything
-    @fact length(collect(intersect(t, (intervals[1][1], intervals[end][2])))) --> length(t)
+    @test length(collect(intersect(t, (intervals[1][1], intervals[end][2])))) == length(t)
 
-    @fact all(Bool[hasintersection(t, interval[1]) for interval in intervals]) --> true
-    @fact all(Bool[hasintersection(t, interval[end]) for interval in intervals]) --> true
+    @test all(Bool[hasintersection(t, interval[1]) for interval in intervals])
+    @test all(Bool[hasintersection(t, interval[end]) for interval in intervals])
 
     # some random intersection queries
     function random_intersection_query()
@@ -241,12 +245,12 @@ facts("Interval Intersection") do
         return length(collect(intersect(t, (intervals[i][1], intervals[j][2])))) == j - i + 1
     end
 
-    @fact all(Bool[random_intersection_query() for _ in 1:1000]) --> true
+    @test all(Bool[random_intersection_query() for _ in 1:1000])
 
     # intervals separated by 1
     t = IntervalMap{Int, Int}()
 
-    @fact hasintersection(t, 1) --> false
+    @test !hasintersection(t, 1)
 
     intervals = Any[]
     gaps = Any[]
@@ -262,14 +266,14 @@ facts("Interval Intersection") do
         a = b + 1
     end
 
-    @fact all(Bool[hasintersection(t, interval[1]) for interval in intervals]) --> true
-    @fact all(Bool[hasintersection(t, interval[end]) for interval in intervals]) --> true
-    @fact all(Bool[hasintersection(t, interval[1]) for interval in gaps]) --> false
-    @fact all(Bool[hasintersection(t, interval[end]) for interval in gaps]) --> false
+    @test all(Bool[hasintersection(t, interval[1]) for interval in intervals])
+    @test all(Bool[hasintersection(t, interval[end]) for interval in intervals])
+    @test !all(Bool[hasintersection(t, interval[1]) for interval in gaps])
+    @test !all(Bool[hasintersection(t, interval[end]) for interval in gaps])
 end
 
 
-facts("Nonunique") do
+@testset "Nonunique" begin
     t = IntervalTree{Int, IntervalValue{Int, Int}}()
     n = 1000
     for i in 1:n
@@ -279,15 +283,15 @@ facts("Nonunique") do
     push!(t, IntervalValue{Int, Int}(1, 1, n + 2))
     push!(t, IntervalValue{Int, Int}(200, 200, n + 3))
 
-    @fact (length(collect(t)) == length(t) == n + 3) --> true
-    @fact issorted(collect(keys(t))) --> true
-    @fact validkeys(t) --> true
-    @fact validparents(t) --> true
-    @fact validsiblings(t) --> true
+    @test (length(collect(t)) == length(t) == n + 3)
+    @test issorted(collect(keys(t)))
+    @test validkeys(t)
+    @test validparents(t)
+    @test validsiblings(t)
 end
 
 
-facts("Tree Intersection") do
+@testset "Tree Intersection" begin
     n = 10000
     t1 = IntervalTrees.IntervalMap{Int, Int}()
     t2 = IntervalTrees.IntervalMap{Int, Int}()
@@ -308,56 +312,56 @@ facts("Tree Intersection") do
     # testing by checking that they are in agreement.
     a = intersect(t1, t2, method=:successive)
     b = intersect(t1, t2, method=:iterative)
-    @fact (collect(a) == collect(b)) --> true
+    @test collect(a) == collect(b)
 
     ## handle a particular intersection case that may not otherwise get hit
     t1 = IntervalMap{Int, Int}()
     t1[(1, 2)] = 1
     t2 = IntervalMap{Int, Int}()
     t2[(1001, 1002)] = 2
-    @fact isempty(collect(intersect(t1, t2, method=:iterative))) --> true
-    @fact isempty(collect(intersect(t1, t2, method=:successive))) --> true
+    @test isempty(collect(intersect(t1, t2, method=:iterative)))
+    @test isempty(collect(intersect(t1, t2, method=:successive)))
 end
 
 
-facts("Insertion") do
+@testset "Insertion" begin
     t = IntervalMap{Int, Int}()
     n = 100000
 
-    context("random insertions") do
+    @testset "random insertions" begin
         for v in 1:n
             k = randinterval()
             t[k] = v
         end
-        @fact issorted(collect(keys(t))) --> true
-        @fact validkeys(t) --> true
-        @fact validparents(t) --> true
-        @fact validsiblings(t) --> true
+        @test issorted(collect(keys(t)))
+        @test validkeys(t)
+        @test validparents(t)
+        @test validsiblings(t)
     end
 
-    context("ordered insertions") do
+    @testset "ordered insertions" begin
         for v in 1:n
             k = (v,rand(v:maxend))
             t[k] = v
         end
-        @fact issorted(collect(keys(t))) --> true
-        @fact validkeys(t) --> true
-        @fact validparents(t) --> true
-        @fact validsiblings(t) --> true
+        @test issorted(collect(keys(t)))
+        @test validkeys(t)
+        @test validparents(t)
+        @test validsiblings(t)
     end
 
-    context("reverse ordered insertions") do
+    @testset "reverse ordered insertions" begin
         for v in 1:n
             k = (maxend-v,rand((maxend-v):maxend))
             t[k] = v
         end
-        @fact issorted(collect(keys(t))) --> true
-        @fact validkeys(t) --> true
-        @fact validparents(t) --> true
-        @fact validsiblings(t) --> true
+        @test issorted(collect(keys(t)))
+        @test validkeys(t)
+        @test validparents(t)
+        @test validsiblings(t)
     end
 
-    context("bulk insertion") do
+    @testset "bulk insertion" begin
         intervals = IntervalValue{Int, Int}[]
         for v in 1:n
             a, b = randinterval()
@@ -366,29 +370,29 @@ facts("Insertion") do
         sort!(intervals)
         t = IntervalMap{Int, Int}(intervals)
 
-        @fact (collect(keys(t)) == [Interval{Int}(interval.first, interval.last)
-                                    for interval in intervals]) --> true
-        @fact (collect(values(t)) == [interval.value for interval in intervals]) --> true
-        @fact issorted(collect(keys(t))) --> true
-        @fact validkeys(t) --> true
-        @fact validparents(t) --> true
-        @fact validsiblings(t) --> true
+        @test collect(keys(t)) == [Interval{Int}(interval.first, interval.last)
+                                   for interval in intervals]
+        @test collect(values(t)) == [interval.value for interval in intervals]
+        @test issorted(collect(keys(t)))
+        @test validkeys(t)
+        @test validparents(t)
+        @test validsiblings(t)
 
         # don't break on empty arrays
         t = IntervalMap{Int, Int}(IntervalValue{Int, Int}[])
-        @fact issorted(collect(keys(t))) --> true
-        @fact validkeys(t) --> true
-        @fact validparents(t) --> true
-        @fact validsiblings(t) --> true
+        @test issorted(collect(keys(t)))
+        @test validkeys(t)
+        @test validparents(t)
+        @test validsiblings(t)
 
-        @fact_throws IntervalTree{Int, Int}(intervals, Int[1])
+        @test_throws MethodError IntervalTree{Int, Int}(intervals, Int[1])
         shuffle!(intervals)
-        @fact_throws IntervalTree{Int, Int}(intervals, vals)
+        @test_throws UndefVarError IntervalTree{Int, Int}(intervals, vals)
     end
 end
 
 
-facts("Updates") do
+@testset "Updates" begin
     t = IntervalMap{Int, Int}()
     n = 100000
     ks = [randinterval() for _ in 1:n]
@@ -401,14 +405,14 @@ facts("Updates") do
         t[k] = v
     end
 
-    @fact issorted(collect(keys(t))) --> true
-    @fact validkeys(t) --> true
-    @fact validparents(t) --> true
-    @fact validsiblings(t) --> true
+    @test issorted(collect(keys(t)))
+    @test validkeys(t)
+    @test validparents(t)
+    @test validsiblings(t)
 end
 
 
-facts("Deletion") do
+@testset "Deletion" begin
     # Set B to smaller number to try to induce more weird merges and borrows and
     # such
     t = IntervalBTree{Int, IntervalValue{Int, Int}, 8}()
@@ -422,37 +426,37 @@ facts("Deletion") do
     shuffle!(intervals)
 
     # delete non-existant is a nop
-    @fact delete!(t, (-1, -1)).n --> n
+    @test delete!(t, (-1, -1)).n === n
 
     # delete one
     interval = pop!(intervals)
     delete!(t, interval)
-    @fact validkeys(t) --> true
-    @fact validparents(t) --> true
-    @fact validsiblings(t) --> true
-    @fact issorted(collect(keys(t))) --> true
-    @fact haskey(t, interval) --> false
-    @fact all(interval -> haskey(t, interval), intervals) --> true
+    @test validkeys(t)
+    @test validparents(t)
+    @test validsiblings(t)
+    @test issorted(collect(keys(t)))
+    @test !haskey(t, interval)
+    @test all(interval -> haskey(t, interval), intervals)
 
     # delete a random 50%
     for interval in 1:(n-1)/2
         interval = pop!(intervals)
         delete!(t, interval)
     end
-    @fact validkeys(t) --> true
-    @fact validparents(t) --> true
-    @fact validsiblings(t) --> true
-    @fact issorted(collect(keys(t))) --> true
-    @fact all(interval -> haskey(t, interval), intervals) --> true
+    @test validkeys(t)
+    @test validparents(t)
+    @test validsiblings(t)
+    @test issorted(collect(keys(t)))
+    @test all(interval -> haskey(t, interval), intervals)
 
     # delete the rest
     for interval in intervals
         delete!(t, interval)
     end
-    @fact isempty(t) --> true
-    @fact validkeys(t) --> true
-    @fact validparents(t) --> true
-    @fact validsiblings(t) --> true
+    @test isempty(t)
+    @test validkeys(t)
+    @test validparents(t)
+    @test validsiblings(t)
 
     # delete left-to-right
     shuffle!(intervals)
@@ -463,10 +467,10 @@ facts("Deletion") do
     for interval in intervals
         delete!(t, interval)
     end
-    @fact isempty(t) --> true
-    @fact validkeys(t) --> true
-    @fact validparents(t) --> true
-    @fact validsiblings(t) --> true
+    @test isempty(t)
+    @test validkeys(t)
+    @test validparents(t)
+    @test validsiblings(t)
 
     # delete right-to-left
     shuffle!(intervals)
@@ -477,10 +481,10 @@ facts("Deletion") do
     for interval in intervals
         delete!(t, interval)
     end
-    @fact isempty(t) --> true
-    @fact validkeys(t) --> true
-    @fact validparents(t) --> true
-    @fact validsiblings(t) --> true
+    @test isempty(t)
+    @test validkeys(t)
+    @test validparents(t)
+    @test validsiblings(t)
 
     # delete from the middle
     shuffle!(intervals)
@@ -494,10 +498,10 @@ facts("Deletion") do
     for i in mid:-1:1
         delete!(t, intervals[i])
     end
-    @fact isempty(t) --> true
-    @fact validkeys(t) --> true
-    @fact validparents(t) --> true
-    @fact validsiblings(t) --> true
+    @test isempty(t)
+    @test validkeys(t)
+    @test validparents(t)
+    @test validsiblings(t)
 
     # contrive a special case: merge with the left when we have a non-null
     # right
@@ -505,64 +509,64 @@ facts("Deletion") do
     for i in 1:24
         t[(i, i)] = i
     end
-    @fact isa(t.root, InternalNode) --> true
-    @fact length(t.root.children) --> 3
-    @fact length(t.root.children[2].children) --> 2
+    @test isa(t.root, InternalNode)
+    @test length(t.root.children) === 3
+    @test length(t.root.children[2].children) === 2
     delete!(t, (15, 15))
     keys_to_delete = collect(keys(t))
     for key in keys_to_delete
         delete!(t, key)
     end
-    @fact isempty(t) --> true
-    @fact validkeys(t) --> true
-    @fact validparents(t) --> true
-    @fact validsiblings(t) --> true
+    @test isempty(t)
+    @test validkeys(t)
+    @test validparents(t)
+    @test validsiblings(t)
 end
 
 
-facts("Slices") do
+@testset "Slices" begin
     xs = Slice{Int, 10}()
 
-    @fact_throws xs[0]
-    @fact_throws xs[11]
-    @fact_throws xs[0] = 1
-    @fact_throws xs[11] = 1
-    @fact_throws pop!(xs)
-    @fact_throws insert!(xs, 0, 1)
+    @test_throws BoundsError xs[0]
+    @test_throws BoundsError xs[11]
+    @test_throws BoundsError xs[0] = 1
+    @test_throws BoundsError xs[11] = 1
+    @test_throws BoundsError pop!(xs)
+    @test_throws BoundsError insert!(xs, 0, 1)
 
     for x in 1:10
         push!(xs, x)
     end
 
-    @fact_throws push!(xs, 11)
-    @fact_throws insert!(xs, 11)
-    @fact_throws resize!(xs, 11)
-    @fact_throws splice!(xs, 0)
-    @fact_throws splice!(xs, 11)
+    @test_throws BoundsError push!(xs, 11)
+    @test_throws BoundsError insert!(xs, 11, 1)
+    @test_throws BoundsError resize!(xs, 11)
+    @test_throws BoundsError splice!(xs, 0)
+    @test_throws BoundsError splice!(xs, 11)
 end
 
 
 # Abuse low-level functions to test cases that wouldn't otherwise occur
-facts("Low Level") do
+@testset "Low Level" begin
     # findidx should return 0 when called on an empty node
     K = Int
     V = IntervalValue{Int}
     B = 32
     x = Interval{Int}(1, 1)
     node = InternalNode{K, V, B}()
-    @fact IntervalTrees.findidx(node, x) --> 0
-    @fact IntervalTrees.firstfrom(node, 1) --> (node, 0)
+    @test IntervalTrees.findidx(node, x) === 0
+    @test IntervalTrees.firstfrom(node, 1) == (node, 0)
     node = LeafNode{K, V, B}()
-    @fact IntervalTrees.findidx(node, x) --> 0
+    @test IntervalTrees.findidx(node, x) == 0
 
     result = IntervalTrees.Intersection{K, V, B}()
     IntervalTrees.firstintersection!(node, x, result)
-    @fact result.index --> 0
+    @test result.index == 0
 
-    @fact IntervalTrees.firstfrom(node, 1) --> (node, 0)
+    @test IntervalTrees.firstfrom(node, 1) == (node, 0)
 
     push!(node.entries, IntervalValue{Int, Int}(1, 1, 1))
-    @fact IntervalTrees.firstfrom(node, 2) --> (node, 0)
+    @test IntervalTrees.firstfrom(node, 2) == (node, 0)
 
     # test that delete! still works on a contrived tree with one internal and
     # one leaf node
@@ -572,17 +576,11 @@ facts("Low Level") do
     push!(t.root.keys, x)
     push!(t.root.children[1].entries, IntervalValue{Int, Int}(1, 1, 1))
     delete!(t, (1,1))
-    @fact isa(t.root, LeafNode) --> true
+    @test isa(t.root, LeafNode)
 
     ## test that the right thing happens if you delete the last key in a non-root
     ## leaf node (which can't actually happen)
     node = LeafNode{Int, IntervalValue{Int}, 32}()
     push!(node.entries, IntervalValue{Int, Int}(1, 1, 1))
-    @fact IntervalTrees.findidx(node, x) --> 1
+    @test IntervalTrees.findidx(node, x) == 1
 end
-
-exitstatus()
-
-end
-
-
