@@ -116,5 +116,3 @@ end
 function Base.searchsortedfirst(s::Slice, x)
     return searchsortedfirst(s.data, x, 1, s.n, Base.Order.Forward)
 end
-
-
