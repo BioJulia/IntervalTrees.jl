@@ -184,6 +184,3 @@ function Base.done{K, V, B}(t::IntervalValueIterator{K, V, B},
                             state::IntervalBTreeIteratorState{K, V, B})
     return isnull(state.leaf) || isempty(get(state.leaf))
 end
-
-
-

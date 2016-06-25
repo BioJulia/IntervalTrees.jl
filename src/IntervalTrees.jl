@@ -1,20 +1,32 @@
+__precompile__()
+
 module IntervalTrees
 
+export
+    IntervalTree,
+    IntervalMap,
+    AbstractInterval,
+    Interval,
+    IntervalValue,
+    depth,
+    hasintersection,
+    from,
+    value
+
 using Compat
-
-import Base: first, last
-
-export IntervalTree, IntervalMap, AbstractInterval, Interval, IntervalValue, depth,
-       hasintersection, from, first, last, print, show, value
 
 include("slice.jl")
 
 
 """
-An AbstractInterval{T} must have a `first` and `last` function each returning
-a value of type T, and `first(i) <= last(i)` must always be true.
+An `AbstractInterval{T}` must have a `first` and `last` function each returning
+a value of type `T`, and `first(i) <= last(i)` must always be true.
 """
 abstract AbstractInterval{T}
+
+function Base.isless(u::AbstractInterval, v::AbstractInterval)
+    return first(u) < first(v) || (first(u) == first(v) && last(u) < last(v))
+end
 
 
 """
@@ -25,12 +37,8 @@ immutable Interval{T} <: AbstractInterval{T}
     last::T
 end
 
-first{T}(i::Interval{T}) = i.first
-last{T}(i::Interval{T}) = i.last
-
-function Base.isless{I <: AbstractInterval, J <: AbstractInterval}(u::I, v::J)
-    return first(u) < first(v) || (first(u) == first(v) && last(u) < last(v))
-end
+Base.first{T}(i::Interval{T}) = i.first
+Base.last{T}(i::Interval{T}) = i.last
 
 
 """
@@ -42,8 +50,8 @@ immutable IntervalValue{K, V} <: AbstractInterval{K}
     value::V
 end
 
-first{K, V}(i::IntervalValue{K, V}) = i.first
-last{K, V}(i::IntervalValue{K, V}) = i.last
+Base.first{K, V}(i::IntervalValue{K, V}) = i.first
+Base.last{K, V}(i::IntervalValue{K, V}) = i.last
 value{K, V}(i::IntervalValue{K, V}) = i.value
 
 Base.print(io::IO, x::Interval) = print(io, "\n($(first(x)),$(last(x)))")
@@ -1421,5 +1429,4 @@ if VERSION > v"0.5-"
     Base.iteratorsize(::IntervalValueIterator)        = Base.SizeUnknown()
 end
 
-end
-
+end  # module IntervalTrees
