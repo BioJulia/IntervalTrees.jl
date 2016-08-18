@@ -7,7 +7,6 @@ else
     const Test = BaseTestNext
 end
 
-using Compat
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
 
