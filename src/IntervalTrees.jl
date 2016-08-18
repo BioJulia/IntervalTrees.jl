@@ -13,8 +13,6 @@ export
     from,
     value
 
-using Compat
-
 include("slice.jl")
 
 
@@ -640,7 +638,7 @@ function deletefirst!{K, V, B}(t::IntervalBTree{K, V, B}, first::K, last::K)
 end
 
 
-function deletefirst!{K, V, B}(t::IntervalBTree{K, V, B}, key::(@compat Tuple{K, K}))
+function deletefirst!{K, V, B}(t::IntervalBTree{K, V, B}, key::Tuple{K, K})
     return deletefirst!(t, Interval{K}(key[1], key[2]))
 end
 
@@ -941,7 +939,7 @@ function Base.haskey{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K}
 end
 
 
-function Base.haskey{K, V, B}(t::IntervalBTree{K, V, B}, key0::(@compat Tuple{Any, Any}))
+function Base.haskey{K, V, B}(t::IntervalBTree{K, V, B}, key0::Tuple{Any, Any})
     key = Interval{K}(key0[1], key0[2])
     return haskey(t.root, key)
 end
@@ -1166,7 +1164,7 @@ end
 
 # Intersect an interval tree t with a single interval, returning an iterator
 # over the intersecting (key, value) pairs in t.
-function Base.intersect{K, V, B}(t::IntervalBTree{K, V, B}, query0::(@compat Tuple{Any, Any}))
+function Base.intersect{K, V, B}(t::IntervalBTree{K, V, B}, query0::Tuple{Any, Any})
     query = Interval{K}(query0[1], query0[2])
     return intersect(t, query)
 end
@@ -1188,7 +1186,7 @@ function Base.start{K, V, B}(it::IntervalIntersectionIterator{K, V, B})
 end
 
 
-function Base.next{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::(@compat Void))
+function Base.next{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::Void)
     intersection = it.intersection
     entry = intersection.node.entries[intersection.index]
     nextintersection!(intersection.node, intersection.index,
@@ -1197,7 +1195,7 @@ function Base.next{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::(@compa
 end
 
 
-function Base.done{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::(@compat Void))
+function Base.done{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::Void)
     return it.intersection.index == 0
 end
 

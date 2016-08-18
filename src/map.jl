@@ -4,7 +4,7 @@ typealias IntervalMap{K, V} IntervalTree{K, IntervalValue{K, V}}
 
 
 function Base.setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value,
-                                 key::(@compat Tuple{Any, Any}))
+                                 key::Tuple{Any, Any})
     push!(t, V(key[1], key[2], value), true)
 end
 
@@ -47,8 +47,7 @@ function _getindex{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K})
 end
 
 
-function Base.get{K, V, B}(t::IntervalBTree{K, V, B}, key::(@compat Tuple{Any, Any}),
-                           default)
+function Base.get{K, V, B}(t::IntervalBTree{K, V, B}, key::Tuple{Any, Any}, default)
     return _get(t.root, Interval{K}(key[1], key[2]), default)
 end
 
@@ -79,8 +78,7 @@ function _get{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K}, default)
 end
 
 
-function Base.get!{K, V, B}(t::IntervalBTree{K, V, B},
-                            key::(@compat Tuple{Any, Any}), default)
+function Base.get!{K, V, B}(t::IntervalBTree{K, V, B}, key::Tuple{Any, Any}, default)
     return push!(t, V(key[1], key[2], default), true, false)
 end
 
@@ -95,7 +93,7 @@ function Base.delete!{K, V, B}(t::IntervalBTree{K, V, B}, first, last)
 end
 
 
-function Base.delete!{K, V, B}(t::IntervalBTree{K, V, B}, key::(@compat Tuple{Any, Any}))
+function Base.delete!{K, V, B}(t::IntervalBTree{K, V, B}, key::Tuple{Any, Any})
     return deletefirst!(t, key)
 end
 
