@@ -54,15 +54,13 @@ value{K, V}(i::IntervalValue{K, V}) = i.value
 
 Base.print(io::IO, x::Interval) = print(io, "\n($(first(x)),$(last(x)))")
 function Base.show(io::IO, x::Interval)
-    t = typeof(x)::DataType
-    show(io, t)
+    show(io, typeof(x))
     print(io, x)
 end
 
 Base.print(io::IO, x::IntervalValue) = print(io, "\n($(first(x)),$(last(x))) => $(value(x))")
 function Base.show(io::IO, x::IntervalValue)
-    t = typeof(x)::DataType
-    show(io, t)
+    show(io, typeof(x))
     print(io, x)
 end
 
@@ -122,12 +120,12 @@ type LeafNode{K, V, B} <: Node{K, V, B}
     right::Nullable{LeafNode{K, V, B}}
 
     function LeafNode()
-        t = new(Slice{V, B}(),
-                zero(K),
-                Nullable{InternalNode{K, V, B}}(),
-                Nullable{LeafNode{K, V, B}}(),
-                Nullable{LeafNode{K, V, B}}())
-        return t
+        return new(
+            Slice{V, B}(),
+            zero(K),
+            Nullable{InternalNode{K, V, B}}(),
+            Nullable{LeafNode{K, V, B}}(),
+            Nullable{LeafNode{K, V, B}}())
     end
 end
 
@@ -169,16 +167,14 @@ type IntervalBTree{K, V, B}
             return new(LeafNode{K, V, B}(), 0)
         end
 
-        d, r =  divrem(n, B - 2)
-        numleaves = d + (r > 0 ? 1 : 0)
+        numleaves = cld(n, B - 2)
         leaves = [LeafNode{K, V, B}() for _ in 1:numleaves]
 
         maxends = Array(K, numleaves)
         minkeys = Array(Interval{K}, numleaves)
 
         # divy up the keys and values among the leaves
-        d, r = divrem(n, numleaves)
-        keys_per_leaf = d + (r > 0 ? 1 : 0)
+        keys_per_leaf = cld(n, numleaves)
         for i in 1:numleaves
             u = (i - 1) * keys_per_leaf + 1
             v = min(n, i * keys_per_leaf)
@@ -200,13 +196,11 @@ type IntervalBTree{K, V, B}
             end
 
             # make parents
-            d, r = divrem(length(children), B - 2)
-            numparents = d + (r > 0 ? 1 : 0)
+            numparents = cld(length(children), B - 2)
             parents = [InternalNode{K, V, B}() for _ in 1:numparents]
 
             # divy up children among parents
-            d, r = divrem(length(children), numparents)
-            children_per_parent = d + (r > 0 ? 1 : 0)
+            children_per_parent = cld(length(children), numparents)
             for i in 1:numparents
                 u = (i - 1) * keys_per_leaf + 1
                 v = min(length(children), i * keys_per_leaf)
@@ -239,8 +233,7 @@ typealias IntervalTree{K, V} IntervalBTree{K, V, 64}
 # Show
 
 function Base.show(io::IO, it::IntervalTree)
-    t = typeof(it)::DataType
-    show(io, t)
+    show(io, typeof(it))
     n = length(it)
     if length(it) > 6
         # Hacky random access ...
@@ -320,7 +313,6 @@ function Base.start{K, V, B}(t::IntervalBTree{K, V, B})
     while !isa(node, LeafNode{K, V, B})
         node = node.children[1]
     end
-
     return IntervalBTreeIteratorState(Nullable(node), 1)
 end
 
@@ -359,7 +351,6 @@ end
 
 function Base.start{K, V, B}(it::IntervalFromIterator{K, V, B})
     node, i = firstfrom(it.t, it.p)
-
     if i == 0
         return IntervalBTreeIteratorState{K, V, B}(Nullable{LeafNode{K, V, B}}(), i)
     else
