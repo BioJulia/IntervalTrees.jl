@@ -228,7 +228,7 @@ end
 
 
 # Default B-tree order
-typealias IntervalTree{K, V} IntervalBTree{K, V, 64}
+typealias IntervalTree{K, V} IntervalBTree{K, V, 16}
 
 # Show
 
@@ -1032,14 +1032,16 @@ function firstintersection!{K, V, B}(t::InternalNode{K, V, B},
         return
     end
 
-    for (i, child) in enumerate(t.children)
-        if child.maxend >= first(query) && (i == 1 || t.keys[i-1].first <= last(query))
-            firstintersection!(child, query, out)
-            if out.index > 0
-                return
-            end
-        elseif minstart(child) > last(query)
+    (query_first, query_last) = (first(query), last(query))
+
+    for i in 1:length(t.children)
+        if i > 1 && unsafe_getindex(t.keys, i-1).first > query_last
             break
+        end
+
+        firstintersection!(unsafe_getindex(t.children, i), query, out)
+        if out.index > 0
+            return
         end
     end
 
