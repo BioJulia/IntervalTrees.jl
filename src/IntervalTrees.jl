@@ -493,6 +493,15 @@ function firstleaf(t::LeafNode)
 end
 
 
+# Find the root node
+function root(t::Node)
+    while !isnull(t.parent)
+        t = get(t.parent)
+    end
+    return t
+end
+
+
 # TODO: Having to construct Nullables here is killng us.
 # How can we avoid that?
 #
@@ -1051,13 +1060,15 @@ end
 # searched.
 function firstintersection!{K, V, B}(t::IntervalBTree{K, V, B},
                                      query::AbstractInterval{K},
+                                     lower::Nullable{V},
                                      out::Intersection{K, V, B})
-    return firstintersection!(t.root, query, out)
+    return firstintersection!(t.root, query, lower, out)
 end
 
 
 function firstintersection!{K, V, B}(t::InternalNode{K, V, B},
                                      query::AbstractInterval{K},
+                                     lower::Nullable{V},
                                      out::Intersection{K, V, B})
     if isempty(t) || t.maxend < first(query)
         out.index = 0
@@ -1066,17 +1077,20 @@ function firstintersection!{K, V, B}(t::InternalNode{K, V, B},
 
     (query_first, query_last) = (first(query), last(query))
 
-    for i in 1:length(t.children)
+    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.keys, get(lower))
+
+    while i <= length(t.children)
         if i > 1 && unsafe_getindex(t.keys, i-1).first > query_last
             break
         end
 
         if t.maxends[i] >= query_first
-            firstintersection!(unsafe_getindex(t.children, i), query, out)
+            firstintersection!(unsafe_getindex(t.children, i), query, lower, out)
             if out.index > 0
                 return
             end
         end
+        i += 1
     end
 
     out.index = 0
@@ -1086,13 +1100,16 @@ end
 
 function firstintersection!{K, V, B}(t::LeafNode{K, V, B},
                                      query::AbstractInterval{K},
+                                     lower::Nullable{V},
                                      out::Intersection{K, V, B})
     if isempty(t) || t.maxend < first(query)
         out.index = 0
         return
     end
 
-    for i in 1:length(t)
+    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.entries, get(lower))
+
+    while i <= length(t)
         if intersects(t.entries[i], query)
             out.index = i
             out.node = t
@@ -1100,6 +1117,7 @@ function firstintersection!{K, V, B}(t::LeafNode{K, V, B},
         elseif query.last < first(t.entries[i])
             break
         end
+        i += 1
     end
 
     out.index = 0
@@ -1161,24 +1179,21 @@ function nextintersection!{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
         end
         j = 1
 
-        # move to the next leaf node, skipping those we can rule out
-        while true
-            if isnull(t.right)
-                @goto NO_INTERSECTION
-            end
+        if isnull(t.right)
+            break
+        end
 
-            t = get(t.right)
+        t = get(t.right)
 
-            if minstart(t) > last(query)
-                @goto NO_INTERSECTION
-            end
+        if minstart(t) > last(query)
+            break
+        end
 
-            # TODO: A better approach that might solve the issue with super-long
-            # intervals is to try to walk back up the tree and do a logarithmic
-            # search for the next intersection.
-            if t.maxend >= first(query)
-                break
-            end
+        # When we hit a leaf node with no possible intersections, we start over
+        # from the top of the leaf. This is a heuristic to avoid linear search
+        # behavior in the presence of extremely long intervals.
+        if t.maxend < first(query)
+            return firstintersection!(root(t), query, Nullable(t.entries[end]), out)
         end
     end
 
@@ -1223,7 +1238,7 @@ end
 
 
 function Base.start{K, V, B}(it::IntervalIntersectionIterator{K, V, B})
-    return firstintersection!(it.t, it.query, it.intersection)
+    return firstintersection!(it.t, it.query, Nullable{V}(), it.intersection)
 end
 
 
