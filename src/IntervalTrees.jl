@@ -1126,15 +1126,29 @@ function nextintersection!{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
             j += 1
         end
         j = 1
-        if isnull(t.right)
-            break
-        end
-        t = get(t.right)
-        if minstart(t) > last(query)
-            break
+
+        # move to the next leaf node, skipping those we can rule out
+        while true
+            if isnull(t.right)
+                @goto NO_INTERSECTION
+            end
+
+            t = get(t.right)
+
+            if minstart(t) > last(query)
+                @goto NO_INTERSECTION
+            end
+
+            # TODO: A better approach that might solve the issue with super-long
+            # intervals is to try to walk back up the tree and do a logarithmic
+            # search for the next intersection.
+            if t.maxend >= first(query)
+                break
+            end
         end
     end
 
+    @label NO_INTERSECTION
     out.index = 0
     return
 end
