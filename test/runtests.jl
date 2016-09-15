@@ -42,8 +42,12 @@ end
 
 
 function validkeys(node::IntervalTrees.InternalNode, minint, maxint)
-    for child in node.children
+    for (i, child) in enumerate(node.children)
         if child.maxend > node.maxend
+            return false
+        end
+
+        if child.maxend != node.maxends[i]
             return false
         end
     end
@@ -572,8 +576,11 @@ end
     t = IntervalBTree{K, V, B}()
     t.root = InternalNode{K, V, B}()
     push!(t.root.children, LeafNode{K, V, B}())
+    push!(t.root.maxends, 1)
     push!(t.root.keys, x)
     push!(t.root.children[1].entries, IntervalValue{Int, Int}(1, 1, 1))
+    t.root.maxend = 1
+    t.root.children[1].maxend = 1
     delete!(t, (1,1))
     @test isa(t.root, LeafNode)
 
