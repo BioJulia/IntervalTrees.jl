@@ -563,7 +563,7 @@ end
     @test IntervalTrees.findidx(node, x) == 0
 
     result = IntervalTrees.Intersection{K, V, B}()
-    IntervalTrees.firstintersection!(node, x, result)
+    IntervalTrees.firstintersection!(node, x, Nullable{V}(), result)
     @test result.index == 0
 
     @test IntervalTrees.firstfrom(node, 1) == (node, 0)

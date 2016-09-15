@@ -1294,7 +1294,7 @@ function Base.start{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B
         t1_state = start(it.t1)
         while !done(it.t1, t1_state)
             t1_value, t1_state = next(it.t1, t1_state)
-            firstintersection!(it.t2, t1_value, it.intersection)
+            firstintersection!(it.t2, t1_value, Nullable{V2}(), it.intersection)
             if it.intersection.index != 0
                 it.t1_state = t1_state
                 it.t1_value = t1_value
@@ -1386,7 +1386,7 @@ function Base.next{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2
         t1_value = it.t1_value
         while intersection.index == 0 && !done(t1, t1_state)
             t1_value, t1_state = next(t1, t1_state)
-            firstintersection!(t2, t1_value, intersection)
+            firstintersection!(t2, t1_value, Nullable{V2}(), intersection)
         end
         it.isdone = intersection.index == 0
         it.t1_state = t1_state
