@@ -81,8 +81,11 @@ type InternalNode{K, V, B} <: Node{K, V, B}
     # are full of intervals with the same start value.
     keys::Slice{Interval{K}, B}
 
-    # Maximum interval end-point in this subtree.
+    # Maximum end ofd this node
     maxend::K
+
+    # Maximum child subtree end-points
+    maxends::Slice{K, B}
 
     children::Slice{Node{K, V, B}, B}
 
@@ -93,7 +96,7 @@ type InternalNode{K, V, B} <: Node{K, V, B}
     right::Nullable{InternalNode{K, V, B}}
 
     function InternalNode()
-        t = new(Slice{Interval{K}, B}(), zero(K), Slice{Node{K, V, B}, B}(),
+        t = new(Slice{Interval{K}, B}(), zero(K), Slice{K, B}(), Slice{Node{K, V, B}, B}(),
                 Nullable{InternalNode{K, V, B}}(),
                 Nullable{InternalNode{K, V, B}}(),
                 Nullable{InternalNode{K, V, B}}())
@@ -207,6 +210,7 @@ type IntervalBTree{K, V, B}
                 maxend = maxends[u]
                 for j in u:v
                     push!(parents[i].children, children[j])
+                    push!(parents[i].maxends, maxends[j])
                     children[j].parent = parents[i]
                     maxend = max(maxend, maxends[j])
                     if j > u
@@ -228,7 +232,7 @@ end
 
 
 # Default B-tree order
-typealias IntervalTree{K, V} IntervalBTree{K, V, 64}
+typealias IntervalTree{K, V} IntervalBTree{K, V, 16}
 
 # Show
 
@@ -419,12 +423,15 @@ function split!{K, V, B}(left::InternalNode{K, V, B})
     m = length(left)
 
     resize!(right.children, m - div(m, 2))
+    resize!(right.maxends, m - div(m, 2))
     resize!(right.keys, m - div(m, 2) - 1)
 
     copy!(right.children, 1, left.children, div(m, 2)+1, length(right.children))
+    copy!(right.maxends, 1, left.maxends, div(m, 2)+1, length(right.maxends))
     copy!(right.keys, 1, left.keys, div(m, 2)+1, length(right.keys))
 
     resize!(left.children, div(m, 2))
+    resize!(left.maxends, div(m, 2))
     resize!(left.keys, div(m, 2) - 1)
 
     left.maxend = left.children[1].maxend
@@ -482,6 +489,15 @@ end
 
 
 function firstleaf(t::LeafNode)
+    return t
+end
+
+
+# Find the root node
+function root(t::Node)
+    while !isnull(t.parent)
+        t = get(t.parent)
+    end
     return t
 end
 
@@ -570,6 +586,7 @@ function _push!{K, V, B}(t::IntervalBTree{K, V, B},
         # travel back up the tree setting maxend values and splitting as needed
         parent = node.parent
         leftnode = leftleaf
+        child = leftleaf
         rightnode = rightleaf
         hassplit = true
         while !isnull(parent)
@@ -577,7 +594,9 @@ function _push!{K, V, B}(t::IntervalBTree{K, V, B},
             if hassplit
                 i = findidx(p, entry) # key index
                 j = i <= length(p) - 1 && entry >= p.keys[i] ? i + 1 : i # child index
+                p.maxends[j] = p.children[j].maxend
                 insert!(p.children, j + 1, rightnode)
+                insert!(p.maxends, j + 1, p.children[j+1].maxend)
                 p.maxend = max(p.maxend, maxend)
                 insert!(p.keys, j, median)
 
@@ -591,7 +610,9 @@ function _push!{K, V, B}(t::IntervalBTree{K, V, B},
                 end
             else
                 p.maxend = max(p.maxend, last(entry))
+                p.maxends[findfirst(p.children, child)] = child.maxend
             end
+            child = p
             parent = p.parent
         end
 
@@ -601,16 +622,21 @@ function _push!{K, V, B}(t::IntervalBTree{K, V, B},
             push!(t.root.children, leftnode)
             push!(t.root.children, rightnode)
             t.root.maxend = maxend
+            push!(t.root.maxends, leftnode.maxend)
+            push!(t.root.maxends, rightnode.maxend)
             leftnode.parent = t.root
             rightnode.parent = t.root
         end
     else
         # travel back up the tree setting maxend values
         parent = node.parent
+        child = node
         while !isnull(parent)
             p = get(parent)
             p.maxend = max(p.maxend, last(entry))
+            p.maxends[findfirst(p.children, child)] = child.maxend
             parent = p.parent
+            child = p
         end
     end
 
@@ -672,7 +698,7 @@ immutable DeleteResult
 end
 
 
-# Delete key from the subtree is present. Return a DeleteResult object.
+# Delete key from the subtree if present. Return a DeleteResult object.
 function _deletefirst!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
     i = findidx(t, key)
     j = i <= length(t) - 1 && key >= t.keys[i] ? i + 1 : i # child index
@@ -685,15 +711,19 @@ function _deletefirst!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
 
     if ans.fate == KEYFATE_UPDATE_LEFT
         t.maxend = nodemaxend(t)
+        t.maxends[j] = t.children[j].maxend
         if j > 1
-            t.keys[j - 1] = minkey(t.children[j]);
+            t.maxends[j-1] = t.children[j-1].maxend
+            t.keys[j-1] = minkey(t.children[j]);
             return DeleteResult(true, KEYFATE_NONE)
         else
             return DeleteResult(true, KEYFATE_UPDATE_LEFT)
         end
     elseif ans.fate == KEYFATE_UPDATE_RIGHT
         t.maxend = nodemaxend(t)
+        t.maxends[j] = t.children[j].maxend
         if j < length(t)
+            t.maxends[j+1] = t.children[j+1].maxend
             t.keys[j] = minkey(t.children[j+1])
         end
 
@@ -712,7 +742,13 @@ function _deletefirst!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
 
         splice!(t.keys, deleteidx - 1)
         splice!(t.children, deleteidx)
+        splice!(t.maxends, deleteidx)
         t.maxend = nodemaxend(t)
+        if ans.fate == KEYFATE_DELETE
+            t.maxends[j-1] = t.children[j-1].maxend
+        elseif ans.fate == KEYFATE_DELETE_RIGHT
+            t.maxends[j] = t.children[j].maxend
+        end
 
         # not underfull
         minsize = div(B, 2)
@@ -726,6 +762,7 @@ function _deletefirst!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
             if sameparent(right, t) && length(right) > minsize
                 splice!(right.keys, 1)
                 push!(t.children, splice!(right.children, 1))
+                push!(t.maxends, splice!(right.maxends, 1))
                 push!(t.keys, minkey(t.children[end]))
                 t.maxend = max(t.maxend, nodemaxend(t.children[end]))
                 right.maxend = nodemaxend(right)
@@ -740,6 +777,7 @@ function _deletefirst!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
             left = get(t.left)
             if sameparent(left, t) && length(left) > minsize
                 insert!(t.children, 1, pop!(left.children))
+                insert!(t.maxends, 1, pop!(left.maxends))
                 pop!(left.keys)
                 insert!(t.keys, 1, minkey(t.children[2]))
                 t.maxend = max(t.maxend, nodemaxend(t.children[1]))
@@ -780,8 +818,9 @@ function _deletefirst!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
 
         # Allow the root node to be underfull
         return DeleteResult(true, KEYFATE_NONE)
-    else
+    else # KEYFATE_NONE
         t.maxend = nodemaxend(t)
+        t.maxends[j] = t.children[j].maxend
         return DeleteResult(true, KEYFATE_NONE)
     end
 end
@@ -884,7 +923,9 @@ function merge!{K, V, B}(left::InternalNode{K, V, B}, right::InternalNode{K, V, 
     @assert length(left) + length(right) <= B
     resize!(left.keys, leftlen + rightlen - 1)
     resize!(left.children, leftlen + rightlen)
+    resize!(left.maxends, leftlen + rightlen)
     copy!(left.children, leftlen+1, right.children, 1, length(right.children))
+    copy!(left.maxends, leftlen+1, right.maxends, 1, length(right.maxends))
     for i in leftlen+1:length(left.children)
         left.children[i].parent = left
     end
@@ -1019,28 +1060,37 @@ end
 # searched.
 function firstintersection!{K, V, B}(t::IntervalBTree{K, V, B},
                                      query::AbstractInterval{K},
+                                     lower::Nullable{V},
                                      out::Intersection{K, V, B})
-    return firstintersection!(t.root, query, out)
+    return firstintersection!(t.root, query, lower, out)
 end
 
 
 function firstintersection!{K, V, B}(t::InternalNode{K, V, B},
                                      query::AbstractInterval{K},
+                                     lower::Nullable{V},
                                      out::Intersection{K, V, B})
     if isempty(t) || t.maxend < first(query)
         out.index = 0
         return
     end
 
-    for (i, child) in enumerate(t.children)
-        if child.maxend >= first(query) && (i == 1 || t.keys[i-1].first <= last(query))
-            firstintersection!(child, query, out)
+    (query_first, query_last) = (first(query), last(query))
+
+    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.keys, get(lower))
+
+    while i <= length(t.children)
+        if i > 1 && unsafe_getindex(t.keys, i-1).first > query_last
+            break
+        end
+
+        if t.maxends[i] >= query_first
+            firstintersection!(unsafe_getindex(t.children, i), query, lower, out)
             if out.index > 0
                 return
             end
-        elseif minstart(child) > last(query)
-            break
         end
+        i += 1
     end
 
     out.index = 0
@@ -1050,13 +1100,16 @@ end
 
 function firstintersection!{K, V, B}(t::LeafNode{K, V, B},
                                      query::AbstractInterval{K},
+                                     lower::Nullable{V},
                                      out::Intersection{K, V, B})
     if isempty(t) || t.maxend < first(query)
         out.index = 0
         return
     end
 
-    for i in 1:length(t)
+    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.entries, get(lower))
+
+    while i <= length(t)
         if intersects(t.entries[i], query)
             out.index = i
             out.node = t
@@ -1064,6 +1117,7 @@ function firstintersection!{K, V, B}(t::LeafNode{K, V, B},
         elseif query.last < first(t.entries[i])
             break
         end
+        i += 1
     end
 
     out.index = 0
@@ -1124,15 +1178,26 @@ function nextintersection!{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
             j += 1
         end
         j = 1
+
         if isnull(t.right)
             break
         end
+
         t = get(t.right)
+
         if minstart(t) > last(query)
             break
         end
+
+        # When we hit a leaf node with no possible intersections, we start over
+        # from the top of the leaf. This is a heuristic to avoid linear search
+        # behavior in the presence of extremely long intervals.
+        if t.maxend < first(query)
+            return firstintersection!(root(t), query, Nullable(t.entries[end]), out)
+        end
     end
 
+    @label NO_INTERSECTION
     out.index = 0
     return
 end
@@ -1173,7 +1238,7 @@ end
 
 
 function Base.start{K, V, B}(it::IntervalIntersectionIterator{K, V, B})
-    return firstintersection!(it.t, it.query, it.intersection)
+    return firstintersection!(it.t, it.query, Nullable{V}(), it.intersection)
 end
 
 
@@ -1229,7 +1294,7 @@ function Base.start{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B
         t1_state = start(it.t1)
         while !done(it.t1, t1_state)
             t1_value, t1_state = next(it.t1, t1_state)
-            firstintersection!(it.t2, t1_value, it.intersection)
+            firstintersection!(it.t2, t1_value, Nullable{V2}(), it.intersection)
             if it.intersection.index != 0
                 it.t1_state = t1_state
                 it.t1_value = t1_value
@@ -1321,7 +1386,7 @@ function Base.next{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2
         t1_value = it.t1_value
         while intersection.index == 0 && !done(t1, t1_state)
             t1_value, t1_state = next(t1, t1_state)
-            firstintersection!(t2, t1_value, intersection)
+            firstintersection!(t2, t1_value, Nullable{V2}(), intersection)
         end
         it.isdone = intersection.index == 0
         it.t1_state = t1_state
