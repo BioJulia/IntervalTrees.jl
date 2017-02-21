@@ -10,6 +10,17 @@ end
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
 
+# Convert
+@testset "Convert and constructors" begin
+    @test Interval(1:5) == Interval(1, 5)
+    @test Interval(4.2:9.2) == Interval(4.2, 9.2)
+    @test first(IntervalValue(1:5, "Hi!")) == 1
+    @test last(IntervalValue(1:5, "Hi!")) == 5
+    @test value(IntervalValue(1:5, "Hi!")) == "Hi!"
+    @test first(IntervalValue(4.2:9.2, "Bye!")) == 4.2
+    @test last(IntervalValue(4.2:9.2, "Bye!")) == 9.2
+    @test value(IntervalValue(4.2:9.2, "Bye!")) == "Bye!"
+end
 
 # Getters
 @testset "Getters" begin
