@@ -16,10 +16,10 @@ import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
     @test Interval(4.2:9.2) == Interval(4.2, 9.2)
     @test first(IntervalValue(1:5, "Hi!")) == 1
     @test last(IntervalValue(1:5, "Hi!")) == 5
-    @test last(IntervalValue(1:5, "Hi!")) == "Hi!"
+    @test value(IntervalValue(1:5, "Hi!")) == "Hi!"
     @test first(IntervalValue(4.2:9.2, "Bye!")) == 4.2
     @test last(IntervalValue(4.2:9.2, "Bye!")) == 9.2
-    @test last(IntervalValue(4.2:9.2, "Bye!")) == "Bye!"
+    @test value(IntervalValue(4.2:9.2, "Bye!")) == "Bye!"
 end
 
 # Getters
