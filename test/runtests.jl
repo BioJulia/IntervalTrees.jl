@@ -14,8 +14,12 @@ import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
 @testset "Convert and constructors" begin
     @test Interval(1:5) == Interval(1, 5)
     @test Interval(4.2:9.2) == Interval(4.2, 9.2)
-    @test IntervalValue(1:5, "Hi!") == IntervalValue(1, 5, "Hi!")
-    @test IntervalValue(5.6:9.6, "Bye!") == IntervalValue(5.6, 9.6, "Bye!")
+    @test first(IntervalValue(1:5, "Hi!")) == 1
+    @test last(IntervalValue(1:5, "Hi!")) == 5
+    @test last(IntervalValue(1:5, "Hi!")) == "Hi!"
+    @test first(IntervalValue(4.2:9.2, "Bye!")) == 4.2
+    @test last(IntervalValue(4.2:9.2, "Bye!")) == 9.2
+    @test last(IntervalValue(4.2:9.2, "Bye!")) == "Bye!"
 end
 
 # Getters
