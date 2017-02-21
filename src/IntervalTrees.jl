@@ -34,7 +34,7 @@ immutable Interval{T} <: AbstractInterval{T}
     first::T
     last::T
 end
-Base.convert{T}(Interval{T}, range::Range{T}) = Interval(range.first, range.last)
+Base.convert{T}(::Type{Interval{T}}, range::Range{T}) = Interval(range.first, range.last)
 
 Base.first{T}(i::Interval{T}) = i.first
 Base.last{T}(i::Interval{T}) = i.last
