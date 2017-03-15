@@ -13,6 +13,8 @@ export
     from,
     value
 
+import Compat: @compat
+
 include("slice.jl")
 
 
@@ -20,7 +22,7 @@ include("slice.jl")
 An `AbstractInterval{T}` must have a `first` and `last` function each returning
 a value of type `T`, and `first(i) <= last(i)` must always be true.
 """
-abstract AbstractInterval{T}
+@compat abstract type AbstractInterval{T} end
 
 function Base.isless(u::AbstractInterval, v::AbstractInterval)
     return first(u) < first(v) || (first(u) == first(v) && last(u) < last(v))
@@ -72,7 +74,7 @@ end
 #        data. It must have `first`, `last`, and `isless` methods.
 #   B : Integer giving the B-tree order.
 
-abstract Node{K, V, B}
+@compat abstract type Node{K, V, B} end
 
 
 type InternalNode{K, V, B} <: Node{K, V, B}
@@ -234,7 +236,7 @@ end
 
 
 # Default B-tree order
-typealias IntervalTree{K, V} IntervalBTree{K, V, 16}
+@compat typealias IntervalTree{K, V} IntervalBTree{K, V, 16}
 
 # Show
 

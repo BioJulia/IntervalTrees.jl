@@ -1,6 +1,6 @@
 # IntervalTree map operations
 
-typealias IntervalMap{K, V} IntervalTree{K, IntervalValue{K, V}}
+@compat typealias IntervalMap{K, V} IntervalTree{K, IntervalValue{K, V}}
 
 
 function Base.setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value,
