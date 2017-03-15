@@ -177,8 +177,8 @@ type IntervalBTree{K, V, B}
         numleaves = cld(n, B - 2)
         leaves = [LeafNode{K, V, B}() for _ in 1:numleaves]
 
-        maxends = Array(K, numleaves)
-        minkeys = Array(Interval{K}, numleaves)
+        maxends = Vector{K}(numleaves)
+        minkeys = Vector{Interval{K}}(numleaves)
 
         # divy up the keys and values among the leaves
         keys_per_leaf = cld(n, numleaves)
