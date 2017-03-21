@@ -71,7 +71,7 @@ as an efficient way to map `(K, K)` tuples to values.
 using IntervalTrees
 
 # Create an interval tree mapping (Int, Int) intervals to Strings.
-xs = IntervalMap{Int, ASCIIString}()
+xs = IntervalMap{Int, String}()
 
 # Insert values
 xs[(1,100)] = "Low"
