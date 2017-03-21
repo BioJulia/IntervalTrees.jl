@@ -238,7 +238,7 @@ end
 
 
 # Default B-tree order
-@compat typealias IntervalTree{K, V} IntervalBTree{K, V, 64}
+@compat const IntervalTree{K, V} = IntervalBTree{K, V, 64}
 
 # Show
 
