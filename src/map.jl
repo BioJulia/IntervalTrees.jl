@@ -107,6 +107,9 @@ immutable IntervalKeyIterator{K, V, B}
     t::IntervalBTree{K, V, B}
 end
 
+Base.eltype{K,V,B}(::Type{IntervalKeyIterator{K,V,B}}) = Interval{K}
+Base.iteratorsize{K,V,B}(::Type{IntervalKeyIterator{K,V,B}}) = Base.SizeUnknown()
+
 
 function Base.keys(t::IntervalBTree)
     return IntervalKeyIterator(t)
@@ -147,6 +150,9 @@ end
 immutable IntervalValueIterator{K, V <: IntervalValue, B}
     t::IntervalBTree{K, V, B}
 end
+
+Base.eltype{K,V,B}(::Type{IntervalValueIterator{K,V,B}}) = valtype(V)
+Base.iteratorsize{K,V,B}(::Type{IntervalValueIterator{K,V,B}}) = Base.SizeUnknown()
 
 
 function Base.values{K, V <: IntervalValue, B}(t::IntervalBTree{K, V, B})
