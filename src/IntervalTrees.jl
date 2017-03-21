@@ -13,6 +13,8 @@ export
     from,
     value
 
+import Compat: @compat
+
 include("slice.jl")
 
 
@@ -20,7 +22,7 @@ include("slice.jl")
 An `AbstractInterval{T}` must have a `first` and `last` function each returning
 a value of type `T`, and `first(i) <= last(i)` must always be true.
 """
-abstract AbstractInterval{T}
+@compat abstract type AbstractInterval{T} end
 
 function Base.isless(u::AbstractInterval, v::AbstractInterval)
     return first(u) < first(v) || (first(u) == first(v) && last(u) < last(v))
@@ -50,6 +52,8 @@ immutable IntervalValue{K, V} <: AbstractInterval{K}
 end
 IntervalValue{K, V}(range::Range{K}, value::V) = IntervalValue(first(range), last(range), value)
 
+valtype{K,V}(::Type{IntervalValue{K,V}}) = V
+
 Base.first{K, V}(i::IntervalValue{K, V}) = i.first
 Base.last{K, V}(i::IntervalValue{K, V}) = i.last
 value{K, V}(i::IntervalValue{K, V}) = i.value
@@ -72,7 +76,7 @@ end
 #        data. It must have `first`, `last`, and `isless` methods.
 #   B : Integer giving the B-tree order.
 
-abstract Node{K, V, B}
+@compat abstract type Node{K, V, B} end
 
 
 type InternalNode{K, V, B} <: Node{K, V, B}
@@ -175,8 +179,8 @@ type IntervalBTree{K, V, B}
         numleaves = cld(n, B - 2)
         leaves = [LeafNode{K, V, B}() for _ in 1:numleaves]
 
-        maxends = Array(K, numleaves)
-        minkeys = Array(Interval{K}, numleaves)
+        maxends = Vector{K}(numleaves)
+        minkeys = Vector{Interval{K}}(numleaves)
 
         # divy up the keys and values among the leaves
         keys_per_leaf = cld(n, numleaves)
@@ -234,7 +238,7 @@ end
 
 
 # Default B-tree order
-typealias IntervalTree{K, V} IntervalBTree{K, V, 16}
+@compat const IntervalTree{K, V} = IntervalBTree{K, V, 64}
 
 # Show
 
@@ -349,6 +353,9 @@ immutable IntervalFromIterator{K, V, B}
     t::IntervalBTree{K, V, B}
     p::K
 end
+
+Base.eltype{K,V,B}(::Type{IntervalFromIterator{K,V,B}}) = V
+Base.iteratorsize{K,V,B}(::Type{IntervalFromIterator{K,V,B}}) = Base.SizeUnknown()
 
 function from{K, V, B}(t::IntervalBTree{K, V, B}, p)
     return IntervalFromIterator{K, V, B}(t, convert(K, p))
@@ -1219,6 +1226,8 @@ type IntervalIntersectionIterator{K, V, B}
     end
 end
 
+Base.eltype{K,V,B}(::Type{IntervalIntersectionIterator{K,V,B}}) = V
+Base.iteratorsize{K,V,B}(::Type{IntervalIntersectionIterator{K,V,B}}) = Base.SizeUnknown()
 
 # Intersect an interval tree t with a single interval, returning an iterator
 # over the intersecting (key, value) pairs in t.
@@ -1286,6 +1295,8 @@ type IntersectionIterator{K, V1, B1, V2, B2}
     end
 end
 
+Base.eltype{K,V1,B1,V2,B2}(::Type{IntersectionIterator{K,V1,B1,V2,B2}}) = Tuple{V1,V2}
+Base.iteratorsize{K,V1,B1,V2,B2}(::Type{IntersectionIterator{K,V1,B1,V2,B2}}) = Base.SizeUnknown()
 
 function Base.start{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2})
     it.isdone = true
@@ -1476,13 +1487,5 @@ end
 #end
 
 include("map.jl")
-
-if isdefined(Base, :iteratorsize)
-    Base.iteratorsize(::IntervalFromIterator)         = Base.SizeUnknown()
-    Base.iteratorsize(::IntervalIntersectionIterator) = Base.SizeUnknown()
-    Base.iteratorsize(::IntersectionIterator)         = Base.SizeUnknown()
-    Base.iteratorsize(::IntervalKeyIterator)          = Base.SizeUnknown()
-    Base.iteratorsize(::IntervalValueIterator)        = Base.SizeUnknown()
-end
 
 end  # module IntervalTrees

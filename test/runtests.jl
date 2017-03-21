@@ -121,7 +121,7 @@ function validsiblings(t::IntervalTrees.IntervalBTree)
     # Do an in-order traversal, pushing nodes onto a stack indexed by
     # depth.
     tdepth = depth(t)
-    nodestacks = [Array(IntervalTrees.Node, 0) for _ in 1:tdepth]
+    nodestacks = [Vector{IntervalTrees.Node}(0) for _ in 1:tdepth]
 
     function _visit(node::IntervalTrees.InternalNode, k)
         push!(nodestacks[k], node)
