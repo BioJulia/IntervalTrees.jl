@@ -24,8 +24,14 @@ a value of type `T`, and `first(i) <= last(i)` must always be true.
 """
 @compat abstract type AbstractInterval{T} end
 
-function Base.isless(u::AbstractInterval, v::AbstractInterval)
+
+function basic_isless(u::AbstractInterval, v::AbstractInterval)
     return first(u) < first(v) || (first(u) == first(v) && last(u) < last(v))
+end
+
+
+function Base.isless(u::AbstractInterval, v::AbstractInterval)
+    return basic_isless(u, v)
 end
 
 
@@ -952,7 +958,7 @@ function findidx{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K})
     if isempty(t.entries)
         return 0
     end
-    return searchsortedfirst(t.entries, key)
+    return searchsortedfirst(t.entries, key, lt=basic_isless)
 end
 
 function findidx{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K})
@@ -1116,7 +1122,8 @@ function firstintersection!{K, V, B}(t::LeafNode{K, V, B},
         return
     end
 
-    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.entries, get(lower))
+    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.entries, get(lower),
+                                                 lt=basic_isless)
 
     while i <= length(t)
         if intersects(t.entries[i], query)
@@ -1206,7 +1213,6 @@ function nextintersection!{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
         end
     end
 
-    @label NO_INTERSECTION
     out.index = 0
     return
 end
