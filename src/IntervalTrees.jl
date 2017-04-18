@@ -123,7 +123,8 @@ end
 
 
 type LeafNode{K, V, B} <: Node{K, V, B}
-    entries::Slice{V, B}
+    entries::Vector{V}
+    count::UInt32 # number of stored entries
 
     # maximum interval end-point in this leaf node.
     maxend::K
@@ -136,7 +137,7 @@ type LeafNode{K, V, B} <: Node{K, V, B}
 
     function LeafNode()
         return new(
-            Slice{V, B}(),
+            Array{V}(B), 0,
             zero(K),
             Nullable{InternalNode{K, V, B}}(),
             Nullable{LeafNode{K, V, B}}(),
@@ -149,6 +150,51 @@ function minstart(t::LeafNode)
     return first(t.entries[1])
 end
 
+
+function Base.resize!{K, V, B}(leaf::LeafNode{K, V, B}, n)
+    @assert 0 <= n <= B
+    leaf.count = n
+end
+
+
+function Base.splice!{K, V, B}(leaf::LeafNode{K, V, B}, i::Integer)
+    x, leaf.count = slice_splice!(leaf.entries, leaf.count, i)
+    return x
+end
+
+
+function Base.insert!{K, V, B}(leaf::LeafNode{K, V, B}, i::Integer, value::V)
+    leaf.count = slice_insert!(leaf.entries, leaf.count, i, value)
+end
+
+
+function Base.push!{K, V, B}(leaf::LeafNode{K, V, B}, value::V)
+    leaf.count += 1
+    leaf.entries[leaf.count] = value
+end
+
+
+function Base.pop!{K, V, B}(leaf::LeafNode{K, V, B})
+    x = leaf.entries[leaf.count]
+    leaf.count -= 1
+    return x
+end
+
+
+# iterate through entries in a leaf node
+function Base.start(leaf::LeafNode)
+    return 1
+end
+
+
+function Base.next(leaf::LeafNode, i::Int)
+    return (leaf.entries[i], i + 1)
+end
+
+
+function Base.done(leaf::LeafNode, i::Int)
+    return i > length(leaf)
+end
 
 
 type IntervalBTree{K, V, B}
@@ -196,7 +242,7 @@ type IntervalBTree{K, V, B}
             minkeys[i] = Interval{K}(first(entries[u]), last(entries[u]))
             maxends[i] = last(entries[u])
             for j in u:v
-                push!(leaves[i].entries, entries[j])
+                push!(leaves[i], entries[j])
                 maxends[i] = max(maxends[i], last(entries[j]))
             end
             leaves[i].maxend = maxends[i]
@@ -294,7 +340,7 @@ end
 
 
 function Base.length(t::LeafNode)
-    return length(t.entries)
+    return t.count
 end
 
 
@@ -309,7 +355,7 @@ end
 
 
 function Base.isempty(t::LeafNode)
-    return isempty(t.entries)
+    return t.count == 0
 end
 
 
@@ -406,17 +452,17 @@ function split!{K, V, B}(left::LeafNode{K, V, B})
     right.parent = left.parent
 
     m = length(left)
-    resize!(right.entries, m - div(m, 2))
-    copy!(right.entries, 1, left.entries, div(m, 2) + 1, length(right.entries))
-    resize!(left.entries, div(m, 2))
+    resize!(right, m - div(m, 2))
+    copy!(right.entries, 1, left.entries, div(m, 2) + 1, length(right))
+    resize!(left, div(m, 2))
 
     left.maxend = last(left.entries[1])
-    for entry in left.entries
+    for entry in left
         left.maxend = max(left.maxend, last(entry))
     end
 
     right.maxend = last(right.entries[1])
-    for entry in right.entries
+    for entry in right
         right.maxend = max(right.maxend, last(entry))
     end
 
@@ -479,7 +525,7 @@ end
 
 function nodemaxend{K, V, B}(t::LeafNode{K, V, B})
     maxend = zero(K)
-    for i in 1:length(t.entries)
+    for i in 1:length(t)
         maxend = max(maxend, last(t.entries[i]))
     end
     return maxend
@@ -584,8 +630,7 @@ function _push!{K, V, B}(t::IntervalBTree{K, V, B},
         end
     end
 
-    #unsafe_insert!(node.entries, i, entry)
-    insert!(node.entries, i, entry)
+    insert!(node, i, entry)
     if length(node) == 1 || last(entry) > node.maxend
         node.maxend = last(entry)
     end
@@ -850,7 +895,7 @@ function _deletefirst!{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
         return DeleteResult(false, KEYFATE_NONE)
     end
 
-    splice!(t.entries, i)
+    splice!(t, i)
 
     # This is the root node. Allow it to be empty.
     if isempty(t)
@@ -870,8 +915,8 @@ function _deletefirst!{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
     if !isnull(t.right)
         right = get(t.right)
         if sameparent(right, t) && length(right) > minsize
-            push!(t.entries, splice!(right.entries, 1))
-            t.maxend = max(t.maxend, last(t.entries[end]))
+            push!(t, splice!(right, 1))
+            t.maxend = max(t.maxend, last(t.entries[t.count]))
             right.maxend = nodemaxend(right)
 
             return DeleteResult(true, KEYFATE_UPDATE_RIGHT)
@@ -882,7 +927,7 @@ function _deletefirst!{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
     if !isnull(t.left)
         left = get(t.left)
         if sameparent(left, t) && length(left) > minsize
-            insert!(t.entries, 1, pop!(left.entries))
+            insert!(t, 1, pop!(left))
             t.maxend = max(t.maxend, last(t.entries[1]))
             left.maxend = nodemaxend(left)
 
@@ -925,8 +970,8 @@ end
 function merge!{K, V, B}(left::LeafNode{K, V, B}, right::LeafNode{K, V, B})
     leftlen, rightlen = length(left), length(right)
     @assert leftlen + rightlen <= B
-    resize!(left.entries, leftlen + rightlen)
-    copy!(left.entries, leftlen+1, right.entries, 1, length(right.entries))
+    resize!(left, leftlen + rightlen)
+    copy!(left.entries, leftlen+1, right.entries, 1, length(right))
     left.maxend = nodemaxend(left)
     return
 end
@@ -955,10 +1000,11 @@ end
 # ---------
 
 function findidx{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K})
-    if isempty(t.entries)
+    if isempty(t)
         return 0
     end
-    return searchsortedfirst(t.entries, key, lt=basic_isless)
+    return searchsortedfirst(t.entries, key, 1, Int(t.count),
+                             Base.ord(basic_isless, identity, false))
 end
 
 function findidx{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K})
@@ -1122,8 +1168,10 @@ function firstintersection!{K, V, B}(t::LeafNode{K, V, B},
         return
     end
 
-    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.entries, get(lower),
-                                                 lt=basic_isless)
+    i = isnull(lower) ? 1 :
+        1 + searchsortedlast(t.entries, get(lower), 1, Int(t.count),
+                             Base.ord(basic_isless, identity, false))
+
 
     while i <= length(t)
         if intersects(t.entries[i], query)
@@ -1186,7 +1234,7 @@ function nextintersection!{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
     j = i + 1
     while true
         while j <= length(t)
-            if intersects(unsafe_getindex(t.entries, j), query)
+            if intersects(t.entries[j], query)
                 out.index = j
                 out.node = t
                 return
@@ -1209,7 +1257,8 @@ function nextintersection!{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
         # from the top of the leaf. This is a heuristic to avoid linear search
         # behavior in the presence of extremely long intervals.
         if t.maxend < first(query)
-            return firstintersection!(root(t), query, Nullable(t.entries[end]), out)
+            return firstintersection!(root(t), query,
+                                      Nullable(t.entries[t.count]), out)
         end
     end
 
@@ -1361,9 +1410,9 @@ function nextintersection!{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1
         end
         wnode = get(w)
 
-        uentry = unsafe_getindex(unode.entries, i)
-        ventry = unsafe_getindex(vnode.entries, j)
-        wentry = unsafe_getindex(wnode.entries, k)
+        uentry = unode.entries[i]
+        ventry = vnode.entries[j]
+        wentry = wnode.entries[k]
 
         if last(uentry) < first(ventry)
             @nextleafkey(unode, u, i)
@@ -1394,7 +1443,7 @@ end
 function Base.next{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2}, state)
     if it.successive
         intersection = it.intersection
-        entry = unsafe_getindex(intersection.node.entries, intersection.index)
+        entry = intersection.node.entries[intersection.index]
         value = (it.t1_value, entry)
         nextintersection!(intersection.node, intersection.index, it.t1_value,
                           intersection)
@@ -1413,8 +1462,7 @@ function Base.next{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2
     else
         u = get(it.u)
         w = get(it.w)
-        value = (unsafe_getindex(u.entries, it.i),
-                 unsafe_getindex(w.entries, it.k))
+        value = (u.entries[it.i], w.entries[it.k])
         @nextleafkey(w, it.w, it.k)
         nextintersection!(it)
     end
@@ -1439,9 +1487,6 @@ function Base.intersect{K, V1, B1, V2, B2}(t1::IntervalBTree{K, V1, B1},
     # We decide heuristically which intersection algorithm to use.
     n = length(t1)
     m = length(t2)
-
-    iterative_cost  = n + m
-    successive_cost = n * log(1 + m)
 
     if method == :auto
         iterative_cost  = n + m
