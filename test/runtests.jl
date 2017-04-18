@@ -79,7 +79,7 @@ end
 
 
 function validkeys(node::IntervalTrees.LeafNode, minint, maxint)
-    for entry in node.entries
+    for entry in node.entries[1:node.count]
         if !(minint <= entry <= maxint) || last(entry) > node.maxend
             return false
         end
@@ -564,7 +564,7 @@ end
 @testset "Low Level" begin
     # findidx should return 0 when called on an empty node
     K = Int
-    V = IntervalValue{Int}
+    V = IntervalValue{Int, Int}
     B = 32
     x = Interval{Int}(1, 1)
     node = InternalNode{K, V, B}()
@@ -579,7 +579,7 @@ end
 
     @test IntervalTrees.firstfrom(node, 1) == (node, 0)
 
-    push!(node.entries, IntervalValue{Int, Int}(1, 1, 1))
+    push!(node, IntervalValue{Int, Int}(1, 1, 1))
     @test IntervalTrees.firstfrom(node, 2) == (node, 0)
 
     # test that delete! still works on a contrived tree with one internal and
@@ -589,7 +589,7 @@ end
     push!(t.root.children, LeafNode{K, V, B}())
     push!(t.root.maxends, 1)
     push!(t.root.keys, x)
-    push!(t.root.children[1].entries, IntervalValue{Int, Int}(1, 1, 1))
+    push!(t.root.children[1], IntervalValue{Int, Int}(1, 1, 1))
     t.root.maxend = 1
     t.root.children[1].maxend = 1
     delete!(t, (1,1))
@@ -598,6 +598,6 @@ end
     ## test that the right thing happens if you delete the last key in a non-root
     ## leaf node (which can't actually happen)
     node = LeafNode{Int, IntervalValue{Int}, 32}()
-    push!(node.entries, IntervalValue{Int, Int}(1, 1, 1))
+    push!(node, IntervalValue{Int, Int}(1, 1, 1))
     @test IntervalTrees.findidx(node, x) == 1
 end

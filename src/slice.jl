@@ -116,3 +116,39 @@ end
 function Base.searchsortedfirst(s::Slice, x)
     return searchsortedfirst(s.data, x, 1, s.n, Base.Order.Forward)
 end
+
+
+
+function slice_insert!{T}(xs::Vector{T}, count::Integer, i::Integer, value::T)
+    if count < length(xs) && 1 <= i <= count + 1
+        if isbits(T)
+            unsafe_copy!(pointer(xs, i+1),
+                         pointer(xs, i), count - i + 1)
+        else
+            for k in 0:(count - i)
+                @inbounds xs[count+1-k] = xs[count-k]
+            end
+        end
+        @inbounds xs[i] = value
+        count += 1
+        return count
+    else
+        throw(BoundsError())
+    end
+end
+
+
+function slice_splice!{T}(xs::Vector{T}, count::Integer, i::Integer)
+    if 1 <= i <= count
+        @inbounds x = xs[i]
+        for j in i:count-1
+            @inbounds xs[j] = xs[j + 1]
+        end
+        count -= 1
+        return x, count
+    else
+        throw(BoundsError())
+    end
+end
+
+
