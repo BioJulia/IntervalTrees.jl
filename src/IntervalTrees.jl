@@ -1399,35 +1399,65 @@ end
 
 function nextintersection!{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2})
     u, v, w, i, j, k = it.u, it.v, it.w, it.i, it.j, it.k
+
     it.isdone = true
-    while !isnull(u) && !isnull(v)
-        unode = get(u)
-        vnode = get(v)
-        if isnull(w)
-            @nextleafkey(unode, u, i)
-            w, k = v, j
-            continue
+
+    while true
+        if isnull(u)
+            return
         end
-        wnode = get(w)
-
+        unode = get(u)
         uentry = unode.entries[i]
-        ventry = vnode.entries[j]
-        wentry = wnode.entries[k]
 
-        if last(uentry) < first(ventry)
-            @nextleafkey(unode, u, i)
-        elseif last(ventry) < first(uentry)
-            @nextleafkey(vnode, v, j)
-        elseif first(wentry) <= last(uentry)
-            if intersects(uentry, wentry)
-                it.isdone = false
+        if isnull(v)
+            return
+        end
+        vnode = get(v)
+        ventry = vnode.entries[j]
+
+        # find next intersection w
+        while !isnull(w)
+            wnode = get(w)
+            wentry = wnode.entries[k]
+
+            if first(wentry) <= last(uentry)
+                if first(uentry) <= last(wentry)
+                    it.isdone = false
+                    break
+                end
+                @nextleafkey(wnode, w, k)
+            else
                 break
             end
-            @nextleafkey(wnode, w, k)
-        else
-            @nextleafkey(unode, u, i)
-            w, k = v, j
         end
+
+        # intersection was found
+        if !it.isdone
+            break
+        end
+
+        # if no intersection found, advance u and start again
+        @nextleafkey(unode, u, i)
+
+        if isnull(u)
+            break
+        end
+
+        # find new v corresponding to new u
+        unode = get(u)
+        uentry = unode.entries[i]
+        while !isnull(v)
+            vnode = get(v)
+            ventry = vnode.entries[j]
+
+            if last(ventry) < first(uentry)
+                @nextleafkey(vnode, v, j)
+            else
+                break
+            end
+        end
+
+        w, k = v, j
     end
 
     it.u = u
