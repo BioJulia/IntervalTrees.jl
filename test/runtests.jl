@@ -79,7 +79,11 @@ end
 
 
 function validkeys(node::IntervalTrees.LeafNode, minint, maxint)
-    for entry in node.entries[1:node.count]
+    for (key, entry) in zip(node.keys[1:node.count], node.entries[1:node.count])
+        if first(key) != first(entry) || last(key) != last(entry)
+            return false
+        end
+
         if !(minint <= entry <= maxint) || last(entry) > node.maxend
             return false
         end
