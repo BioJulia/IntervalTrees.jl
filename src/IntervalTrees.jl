@@ -368,7 +368,7 @@ end
 # ---------
 
 
-immutable IntervalBTreeIteratorState{K, V, B}
+type IntervalBTreeIteratorState{K, V, B}
     leaf::Nullable{LeafNode{K, V, B}}
     i::Int
 end
@@ -389,9 +389,10 @@ function Base.next{K, V, B}(t::IntervalBTree{K, V, B},
     leaf = get(state.leaf)
     entry = leaf.entries[state.i]
     if state.i < length(leaf)
-        state = IntervalBTreeIteratorState{K, V, B}(leaf, state.i + 1)
+        state.i += 1
     else
-        state = IntervalBTreeIteratorState{K, V, B}(leaf.right, 1)
+        state.leaf = leaf.right
+        state.i = 1
     end
     return entry, state
 end
