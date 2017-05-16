@@ -1616,12 +1616,12 @@ function Base.intersect{K, V1, B1, V2, B2}(t1::IntervalBTree{K, V1, B1},
                                            t2::IntervalBTree{K, V2, B2};
                                            method=:auto)
     # We decide heuristically which intersection algorithm to use.
-    n = length(t1)
-    m = length(t2)
+    m = length(t1)
+    n = length(t2)
 
     if method == :auto
         iterative_cost  = n + m
-        successive_cost = n * log(1 + m)
+        successive_cost = 0.25 * m * log(1 + n) + 1e5
         if iterative_cost < successive_cost
             return IntersectionIterator{K, V1, B1, V2, B2}(t1, t2, false)
         else
