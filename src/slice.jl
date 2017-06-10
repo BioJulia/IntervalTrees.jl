@@ -7,8 +7,8 @@ type Slice{T, N} <: AbstractVector{T}
     data::Vector{T}
     n::Int # Number of stored elements
 
-    function Slice()
-        new(Vector{T}(N), 0)
+    function (::Type{Slice{T,N}}){T,N}()
+        return new{T,N}(Vector{T}(N), 0)
     end
 end
 
