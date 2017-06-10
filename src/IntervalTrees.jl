@@ -107,12 +107,12 @@ type InternalNode{K, V, B} <: Node{K, V, B}
     left::Nullable{InternalNode{K, V, B}}
     right::Nullable{InternalNode{K, V, B}}
 
-    function InternalNode()
-        t = new(Slice{Interval{K}, B}(), zero(K), Slice{K, B}(), Slice{Node{K, V, B}, B}(),
-                Nullable{InternalNode{K, V, B}}(),
-                Nullable{InternalNode{K, V, B}}(),
-                Nullable{InternalNode{K, V, B}}())
-        return t
+    function (::Type{InternalNode{K,V,B}}){K,V,B}()
+        return new{K,V,B}(
+            Slice{Interval{K}, B}(), zero(K), Slice{K, B}(), Slice{Node{K, V, B}, B}(),
+            Nullable{InternalNode{K, V, B}}(),
+            Nullable{InternalNode{K, V, B}}(),
+            Nullable{InternalNode{K, V, B}}())
     end
 end
 
@@ -136,8 +136,8 @@ type LeafNode{K, V, B} <: Node{K, V, B}
     left::Nullable{LeafNode{K, V, B}}
     right::Nullable{LeafNode{K, V, B}}
 
-    function LeafNode()
-        return new(
+    function (::Type{LeafNode{K,V,B}}){K,V,B}()
+        return new{K,V,B}(
             Array{V}(B), Array{Interval{K}}(B), 0,
             zero(K),
             Nullable{InternalNode{K, V, B}}(),
@@ -206,8 +206,8 @@ type IntervalBTree{K, V, B}
     root::Node{K, V, B}
     n::Int # Number of entries
 
-    function IntervalBTree()
-        return new(LeafNode{K, V, B}(), 0)
+    function (::Type{IntervalBTree{K,V,B}}){K,V,B}()
+        return new{K,V,B}(LeafNode{K, V, B}(), 0)
     end
 
     # Construct an interval tree from a sorted array of intervals.
@@ -218,7 +218,7 @@ type IntervalBTree{K, V, B}
     # Args:
     #   entries: Interval entry values in sorted order.
     #
-    function IntervalBTree(entries::AbstractVector{V})
+    function (::Type{IntervalBTree{K,V,B}}){K,V,B}(entries::AbstractVector{V})
         if !issorted(entries)
             error("Intervals must be sorted to construct an IntervalTree")
         end
@@ -230,7 +230,7 @@ type IntervalBTree{K, V, B}
         n = length(entries)
 
         if n == 0
-            return new(LeafNode{K, V, B}(), 0)
+            return new{K,V,B}(LeafNode{K, V, B}(), 0)
         end
 
         numleaves = cld(n, B - 2)
@@ -289,7 +289,7 @@ type IntervalBTree{K, V, B}
         end
         @assert length(children) == 1
 
-        return new(children[1], n)
+        return new{K,V,B}(children[1], n)
     end
 end
 
@@ -1118,8 +1118,8 @@ type Intersection{K, V, B}
     index::Int
     node::LeafNode{K, V, B}
 
-    Intersection(index, node) = new(index, node)
-    Intersection() = new(0)
+    (::Type{Intersection{K,V,B}}){K,V,B}(index, node) = new{K,V,B}(index, node)
+    (::Type{Intersection{K,V,B}}){K,V,B}() = new{K,V,B}(0)
 end
 
 
@@ -1326,12 +1326,12 @@ type IntervalIntersectionIterator{K, V, B}
     t::IntervalBTree{K, V, B}
     query::AbstractInterval{K}
 
-    function IntervalIntersectionIterator(intersection, t, query)
-        return new(intersection, t, query)
+    function (::Type{IntervalIntersectionIterator{K,V,B}}){K,V,B}(intersection, t, query)
+        return new{K,V,B}(intersection, t, query)
     end
 
-    function IntervalIntersectionIterator()
-        return new(Intersection{K, V, B}())
+    function (::Type{IntervalIntersectionIterator{K,V,B}}){K,V,B}()
+        return new{K,V,B}(Intersection{K, V, B}())
     end
 end
 
@@ -1394,8 +1394,8 @@ type IntersectionIterator{K, V1, B1, V2, B2}
     j::Int
     k::Int
 
-    function IntersectionIterator(t1, t2, successive::Bool)
-        return new(t1, t2, successive)
+    function (::Type{IntersectionIterator{K,V1,B1,V2,B2}}){K,V1,B1,V2,B2}(t1, t2, successive::Bool)
+        return new{K,V1,B1,V2,B2}(t1, t2, successive)
     end
 end
 
