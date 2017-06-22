@@ -1046,6 +1046,48 @@ function Base.haskey{K, V, B}(t::IntervalBTree{K, V, B}, key0::Tuple{Any, Any})
 end
 
 
+function Base.findfirst{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K}, f)
+    i = findidx(t, key)
+    while 1 <= i <= length(t)
+          first(t.keys[i]) == first(key) &&
+          last(t.keys[i]) == last(key)
+        if f(t.keys[i], key)
+            return Nullable(t.entries[i])
+        end
+        i += 1
+        if i > length(t) && !isnull(t.right)
+            t = get(t.right)
+            i = 1
+        end
+    end
+
+    return Nullable{V}()
+end
+
+
+function Base.findfirst{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K}, f)
+    i = findidx(t, key)
+    if i <= length(t) - 1 && key >= t.keys[i]
+        return findfirst(t.children[i+1], key, f)
+    else
+        return findfirst(t.children[i], key, f)
+    end
+end
+
+
+true_cmp(a, b) = true
+
+function Base.findfirst{K, V, B}(t::IntervalBTree{K, V, B}, key::AbstractInterval{K},
+                                 f=true_cmp)
+    return findfirst(t.root, key, f)
+end
+
+
+function Base.findfirst{K, V, B}(t::IntervalBTree{K, V, B}, key0::Tuple{Any, Any},
+                                 f=true_cmp)
+    return findfirst(t, Interval{K}(key0[1], key0[2]), f)
+end
+
 # Intersection
 # ------------
 

@@ -184,6 +184,7 @@ end
 
         shuffle!(intervals)
         @test all(Bool[haskey(t, interval) for interval in intervals])
+        @test all(Bool[!isnull(findfirst(t, interval)) for interval in intervals])
         @test all(Bool[get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1)
                        for interval in intervals])
         @test all(Bool[get(t, interval, -1) != -1 for interval in intervals])
@@ -193,6 +194,12 @@ end
         @test all(Bool[!haskey(t, interval)
                        for interval in [randinterval(maxend+1, 2 * maxend)
                                         for i in 1:n]])
+        @test all(Bool[isnull(findfirst(t, interval))
+                       for interval in [randinterval(maxend+1, 2 * maxend)
+                                        for i in 1:n]])
+
+        @test all(Bool[isnull(findfirst(t, interval, (a,b)->false)) for interval in intervals])
+
         @test all(Bool[get!(t, interval, -1) == IntervalValue{Int, Int}(interval[1], interval[2], -1)
                        for interval in [randinterval(maxend+1, 2 * maxend)
                                         for i in 1:n]])
