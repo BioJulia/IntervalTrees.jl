@@ -570,17 +570,6 @@ function root(t::Node)
 end
 
 
-# TODO: Having to construct Nullables here is killng us.
-# How can we avoid that?
-#
-function nextleafkey{K, V, B}(t::LeafNode{K, V, B}, i::Int)
-    if i < length(t)
-        return (Nullable{LeafNode{K, V, B}}(t), i + 1)
-    else
-        return (t.right, 1)
-    end
-end
-
 # This version of nextleafkey is used in nextintersection at aggressively avoid
 # allocation, and dereferecing nullables more than once.
 macro nextleafkey(leaf, nleaf, i)
@@ -593,7 +582,6 @@ macro nextleafkey(leaf, nleaf, i)
         end
     end
 end
-
 
 
 # Find the minimum interval in a subtree
@@ -1169,18 +1157,20 @@ end
 # as a (leafnode, index) pair, indicating that leafnode.keys[index] intersects.
 # If no intersection is found, index is 0 and leafnode is the last node
 # searched.
-function firstintersection!{K, V, B}(t::IntervalBTree{K, V, B},
-                                     query::AbstractInterval{K},
-                                     lower::Nullable{V},
-                                     out::Intersection{K, V, B})
-    return firstintersection!(t.root, query, lower, out)
+function firstintersection!{F, K, V, B}(t::IntervalBTree{K, V, B},
+                                        query::AbstractInterval{K},
+                                        lower::Nullable{V},
+                                        out::Intersection{K, V, B},
+                                        filter::F)
+    return firstintersection!(t.root, query, lower, out, filter)
 end
 
 
-function firstintersection!{K, V, B}(t::InternalNode{K, V, B},
-                                     query::AbstractInterval{K},
-                                     lower::Nullable{V},
-                                     out::Intersection{K, V, B})
+function firstintersection!{F, K, V, B}(t::InternalNode{K, V, B},
+                                        query::AbstractInterval{K},
+                                        lower::Nullable{V},
+                                        out::Intersection{K, V, B},
+                                        filter::F)
     if isempty(t) || t.maxend < first(query)
         out.index = 0
         return
@@ -1196,7 +1186,8 @@ function firstintersection!{K, V, B}(t::InternalNode{K, V, B},
         end
 
         if t.maxends[i] >= query_first
-            firstintersection!(unsafe_getindex(t.children, i), query, lower, out)
+            firstintersection!(unsafe_getindex(t.children, i), query, lower,
+                               out, filter)
             if out.index > 0
                 return
             end
@@ -1209,10 +1200,11 @@ function firstintersection!{K, V, B}(t::InternalNode{K, V, B},
 end
 
 
-function firstintersection!{K, V, B}(t::LeafNode{K, V, B},
-                                     query::AbstractInterval{K},
-                                     lower::Nullable{V},
-                                     out::Intersection{K, V, B})
+function firstintersection!{F, K, V, B}(t::LeafNode{K, V, B},
+                                        query::AbstractInterval{K},
+                                        lower::Nullable{V},
+                                        out::Intersection{K, V, B},
+                                        filter::F)
     if isempty(t) || t.maxend < first(query)
         out.index = 0
         return
@@ -1224,7 +1216,7 @@ function firstintersection!{K, V, B}(t::LeafNode{K, V, B},
                              Base.ord(basic_isless, identity, false))
 
     while i <= length(t)
-        if intersects(t.entries[i], query)
+        if intersects(t.entries[i], query) && filter(t.entries[i], query)
             out.index = i
             out.node = t
             return
@@ -1324,13 +1316,14 @@ end
 
 # If query intersects node.keys[i], return the next intersecting key as
 # a (leafnode, index) pair.
-function nextintersection!{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
-                                    query::AbstractInterval{K},
-                                    out::Intersection{K, V, B})
+function nextintersection!{F, K, V, B}(t::LeafNode{K, V, B}, i::Integer,
+                                      query::AbstractInterval{K},
+                                      out::Intersection{K, V, B},
+                                      filter::F)
     j = i + 1
     while true
         while j <= length(t)
-            if intersects(t.keys[j], query)
+            if intersects(t.keys[j], query) && filter(t.entries[j], query)
                 out.index = j
                 out.node = t
                 return
@@ -1354,7 +1347,7 @@ function nextintersection!{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
         # behavior in the presence of extremely long intervals.
         if t.maxend < first(query)
             return firstintersection!(root(t), query,
-                                      Nullable(t.entries[t.count]), out)
+                                      Nullable(t.entries[t.count]), out, filter)
         end
     end
 
@@ -1363,62 +1356,68 @@ function nextintersection!{K, V, B}(t::LeafNode{K, V, B}, i::Integer,
 end
 
 
-type IntervalIntersectionIterator{K, V, B}
+type IntervalIntersectionIterator{F, K, V, B}
+    filter::F
     intersection::Intersection{K, V, B}
     t::IntervalBTree{K, V, B}
     query::AbstractInterval{K}
 
-    function (::Type{IntervalIntersectionIterator{K,V,B}}){K,V,B}(intersection, t, query)
-        return new{K,V,B}(intersection, t, query)
+    function (::Type{IntervalIntersectionIterator{F,K,V,B}}){F,K,V,B}(filter, intersection, t, query)
+        return new{F,K,V,B}(filter, intersection, t, query)
     end
 
-    function (::Type{IntervalIntersectionIterator{K,V,B}}){K,V,B}()
-        return new{K,V,B}(Intersection{K, V, B}())
+    function (::Type{IntervalIntersectionIterator{F,K,V,B}}){F,K,V,B}()
+        return new{F,K,V,B}(Intersection{F, K, V, B}())
     end
 end
 
-Base.eltype{K,V,B}(::Type{IntervalIntersectionIterator{K,V,B}}) = V
-Base.iteratorsize{K,V,B}(::Type{IntervalIntersectionIterator{K,V,B}}) = Base.SizeUnknown()
+Base.eltype{F,K,V,B}(::Type{IntervalIntersectionIterator{F,K,V,B}}) = V
+Base.iteratorsize{F,K,V,B}(::Type{IntervalIntersectionIterator{F,K,V,B}}) = Base.SizeUnknown()
 
 # Intersect an interval tree t with a single interval, returning an iterator
 # over the intersecting (key, value) pairs in t.
-function Base.intersect{K, V, B}(t::IntervalBTree{K, V, B}, query0::Tuple{Any, Any})
+function Base.intersect{F, K, V, B}(t::IntervalBTree{K, V, B}, query0::Tuple{Any, Any},
+                                 filter::F=true_cmp)
     query = Interval{K}(query0[1], query0[2])
-    return intersect(t, query)
+    return intersect(t, query, filter)
 end
 
 
-function Base.intersect{K, V, B}(t::IntervalBTree{K, V, B}, first::K, last::K)
+function Base.intersect{F, K, V, B}(t::IntervalBTree{K, V, B}, first::K, last::K,
+                                    filter::F=true_cmp)
     query = Interval{K}(first, last)
-    return intersect(t, query)
+    return intersect(t, query, filter)
 end
 
 
-function Base.intersect{K, V, B}(t::IntervalBTree{K, V, B}, query::AbstractInterval{K})
-    return IntervalIntersectionIterator{K, V, B}(Intersection{K, V, B}(), t, query)
+function Base.intersect{F, K, V, B}(t::IntervalBTree{K, V, B}, query::AbstractInterval{K},
+                                 filter::F=true_cmp)
+    return IntervalIntersectionIterator{F, K, V, B}(filter, Intersection{K, V, B}(), t, query)
 end
 
 
-function Base.start{K, V, B}(it::IntervalIntersectionIterator{K, V, B})
-    return firstintersection!(it.t, it.query, Nullable{V}(), it.intersection)
+function Base.start{F, K, V, B}(it::IntervalIntersectionIterator{F, K, V, B})
+    return firstintersection!(it.t, it.query, Nullable{V}(), it.intersection, it.filter)
 end
 
 
-function Base.next{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::Void)
+function Base.next{F, K, V, B}(it::IntervalIntersectionIterator{F, K, V, B}, ::Void)
     intersection = it.intersection
     entry = intersection.node.entries[intersection.index]
     nextintersection!(intersection.node, intersection.index,
-                      it.query, intersection)
+                      it.query, intersection, it.filter)
     return entry, nothing
 end
 
 
-function Base.done{K, V, B}(it::IntervalIntersectionIterator{K, V, B}, ::Void)
+function Base.done{F, K, V, B}(it::IntervalIntersectionIterator{F, K, V, B}, ::Void)
     return it.intersection.index == 0
 end
 
 
-type IntersectionIterator{K, V1, B1, V2, B2}
+type IntersectionIterator{F, K, V1, B1, V2, B2}
+    filter::F
+
     t1::IntervalBTree{K, V1, B1}
     t2::IntervalBTree{K, V2, B2}
 
@@ -1436,15 +1435,15 @@ type IntersectionIterator{K, V1, B1, V2, B2}
     j::Int
     k::Int
 
-    function (::Type{IntersectionIterator{K,V1,B1,V2,B2}}){K,V1,B1,V2,B2}(t1, t2, successive::Bool)
-        return new{K,V1,B1,V2,B2}(t1, t2, successive)
+    function (::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}){F,K,V1,B1,V2,B2}(filter::F, t1, t2, successive::Bool)
+        return new{F,K,V1,B1,V2,B2}(filter, t1, t2, successive)
     end
 end
 
-Base.eltype{K,V1,B1,V2,B2}(::Type{IntersectionIterator{K,V1,B1,V2,B2}}) = Tuple{V1,V2}
-Base.iteratorsize{K,V1,B1,V2,B2}(::Type{IntersectionIterator{K,V1,B1,V2,B2}}) = Base.SizeUnknown()
+Base.eltype{F,K,V1,B1,V2,B2}(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) = Tuple{V1,V2}
+Base.iteratorsize{F,K,V1,B1,V2,B2}(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) = Base.SizeUnknown()
 
-function Base.start{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2})
+function Base.start{F, K, V1, B1, V2, B2}(it::IntersectionIterator{F, K, V1, B1, V2, B2})
     it.isdone = true
     if it.successive
         it.u = isempty(it.t1) ? Nullable{LeafNode{K, V1, B1}}() : firstleaf(it.t1)
@@ -1478,8 +1477,8 @@ function Base.start{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B
 end
 
 
-function iterative_nextintersection!{K, V1, B1, V2, B2}(
-                        it::IntersectionIterator{K, V1, B1, V2, B2})
+function iterative_nextintersection!{F, K, V1, B1, V2, B2}(
+                        it::IntersectionIterator{F, K, V1, B1, V2, B2})
     u, v, w, i, j, k = it.u, it.v, it.w, it.i, it.j, it.k
 
     it.isdone = true
@@ -1503,7 +1502,7 @@ function iterative_nextintersection!{K, V1, B1, V2, B2}(
             wkey = wnode.keys[k]
 
             if first(wkey) <= last(ukey)
-                if first(ukey) <= last(wkey)
+                if first(ukey) <= last(wkey) && it.filter(unode.entries[i], wnode.entries[k])
                     it.isdone = false
                     break
                 end
@@ -1552,8 +1551,8 @@ function iterative_nextintersection!{K, V1, B1, V2, B2}(
 end
 
 
-function successive_nextintersection!{K, V1, B1, V2, B2}(
-                        it::IntersectionIterator{K, V1, B1, V2, B2})
+function successive_nextintersection!{F, K, V1, B1, V2, B2}(
+                        it::IntersectionIterator{F, K, V1, B1, V2, B2})
     u, w, i, k = it.u, it.w, it.i, it.k
 
     it.isdone = true
@@ -1571,7 +1570,7 @@ function successive_nextintersection!{K, V1, B1, V2, B2}(
             wkey = wnode.keys[k]
 
             if first(wkey) <= last(ukey)
-                if first(ukey) <= last(wkey)
+                if first(ukey) <= last(wkey) && it.filter(unode.entries[i], wnode.entries[k])
                     it.isdone = false
                     break
                 end
@@ -1625,7 +1624,7 @@ function successive_nextintersection!{K, V1, B1, V2, B2}(
 end
 
 
-function Base.next{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2}, state)
+function Base.next{F, K, V1, B1, V2, B2}(it::IntersectionIterator{F, K, V1, B1, V2, B2}, state)
     if it.successive
         u = get(it.u)
         w = get(it.w)
@@ -1643,7 +1642,7 @@ function Base.next{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2
 end
 
 
-function Base.done{K, V1, B1, V2, B2}(it::IntersectionIterator{K, V1, B1, V2, B2}, state)
+function Base.done(it::IntersectionIterator, state)
     return it.isdone
 end
 
@@ -1654,9 +1653,9 @@ end
 #
 # Where key1 is from the first tree and key2 from the second, and they
 # intersect.
-function Base.intersect{K, V1, B1, V2, B2}(t1::IntervalBTree{K, V1, B1},
-                                           t2::IntervalBTree{K, V2, B2};
-                                           method=:auto)
+function Base.intersect{F, K, V1, B1, V2, B2}(t1::IntervalBTree{K, V1, B1},
+                                           t2::IntervalBTree{K, V2, B2},
+                                           filter::F=true_cmp; method=:auto)
     # We decide heuristically which intersection algorithm to use.
     m = length(t1)
     n = length(t2)
@@ -1665,14 +1664,14 @@ function Base.intersect{K, V1, B1, V2, B2}(t1::IntervalBTree{K, V1, B1},
         iterative_cost  = n + m
         successive_cost = 0.25 * m * log(1 + n) + 1e5
         if iterative_cost < successive_cost
-            return IntersectionIterator{K, V1, B1, V2, B2}(t1, t2, false)
+            return IntersectionIterator{F, K, V1, B1, V2, B2}(filter, t1, t2, false)
         else
-            return IntersectionIterator{K, V1, B1, V2, B2}(t1, t2, true)
+            return IntersectionIterator{F, K, V1, B1, V2, B2}(filter, t1, t2, true)
         end
     elseif method == :successive
-        return IntersectionIterator{K, V1, B1, V2, B2}(t1, t2, true)
+        return IntersectionIterator{F, K, V1, B1, V2, B2}(filter, t1, t2, true)
     elseif method == :iterative
-        return IntersectionIterator{K, V1, B1, V2, B2}(t1, t2, false)
+        return IntersectionIterator{F, K, V1, B1, V2, B2}(filter, t1, t2, false)
     else
         error("No such intersection method: $method")
     end
