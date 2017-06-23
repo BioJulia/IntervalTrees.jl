@@ -184,6 +184,7 @@ end
 
         shuffle!(intervals)
         @test all(Bool[haskey(t, interval) for interval in intervals])
+        @test all(Bool[!isnull(findfirst(t, interval)) for interval in intervals])
         @test all(Bool[get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1)
                        for interval in intervals])
         @test all(Bool[get(t, interval, -1) != -1 for interval in intervals])
@@ -193,6 +194,12 @@ end
         @test all(Bool[!haskey(t, interval)
                        for interval in [randinterval(maxend+1, 2 * maxend)
                                         for i in 1:n]])
+        @test all(Bool[isnull(findfirst(t, interval))
+                       for interval in [randinterval(maxend+1, 2 * maxend)
+                                        for i in 1:n]])
+
+        @test all(Bool[isnull(findfirst(t, interval, (a,b)->false)) for interval in intervals])
+
         @test all(Bool[get!(t, interval, -1) == IntervalValue{Int, Int}(interval[1], interval[2], -1)
                        for interval in [randinterval(maxend+1, 2 * maxend)
                                         for i in 1:n]])
@@ -252,6 +259,12 @@ end
 
     # everything
     @test length(collect(intersect(t, (intervals[1][1], intervals[end][2])))) == length(t)
+
+    # always false predicate
+    @test length(collect(intersect(t, (intervals[1][1], intervals[end][2]), (a,b)->false))) == 0
+
+    # half true
+    @test length(collect(intersect(t, (intervals[1][1], intervals[end][2]), (a,b)->isodd(a.value)))) == div(length(intervals), 2)
 
     @test all(Bool[hasintersection(t, interval[1]) for interval in intervals])
     @test all(Bool[hasintersection(t, interval[end]) for interval in intervals])
@@ -332,6 +345,15 @@ end
     b = intersect(t1, t2, method=:iterative)
     @test collect(a) == collect(b)
 
+    # test filter predicate
+    count = 0
+    for (a, b) in intersect(t1, t2)
+        if a.value == b.value
+            count += 1
+        end
+    end
+    @test length(collect(intersect(t1, t2, (a,b) -> a.value == b.value))) == count
+
     ## handle a particular intersection case that may not otherwise get hit
     t1 = IntervalMap{Int, Int}()
     t1[(1, 2)] = 1
@@ -339,6 +361,7 @@ end
     t2[(1001, 1002)] = 2
     @test isempty(collect(intersect(t1, t2, method=:iterative)))
     @test isempty(collect(intersect(t1, t2, method=:successive)))
+    @test isempty(collect(intersect(t1, t2)))
 end
 
 
@@ -578,7 +601,7 @@ end
     @test IntervalTrees.findidx(node, x) == 0
 
     result = IntervalTrees.Intersection{K, V, B}()
-    IntervalTrees.firstintersection!(node, x, Nullable{V}(), result)
+    IntervalTrees.firstintersection!(node, x, Nullable{V}(), result, IntervalTrees.true_cmp)
     @test result.index == 0
 
     @test IntervalTrees.firstfrom(node, 1) == (node, 0)
