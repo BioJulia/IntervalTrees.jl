@@ -1036,10 +1036,10 @@ end
 
 function Base.findfirst{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K}, f)
     i = findidx(t, key)
-    while 1 <= i <= length(t)
+    while 1 <= i <= length(t) &&
           first(t.keys[i]) == first(key) &&
           last(t.keys[i]) == last(key)
-        if f(t.keys[i], key)
+        if f(t.entries[i], key)
             return Nullable(t.entries[i])
         end
         i += 1
