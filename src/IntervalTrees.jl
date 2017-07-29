@@ -219,7 +219,7 @@ type IntervalBTree{K, V, B}
     #   entries: Interval entry values in sorted order.
     #
     function (::Type{IntervalBTree{K,V,B}}){K,V,B}(entries::AbstractVector{V})
-        if !issorted(entries)
+        if !issorted(entries, lt=basic_isless)
             error("Intervals must be sorted to construct an IntervalTree")
         end
 
