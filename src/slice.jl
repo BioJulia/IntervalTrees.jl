@@ -22,7 +22,7 @@ function Base.size(s::Slice)
 end
 
 
-function Base.getindex{T, N}(s::Slice{T, N}, i::Integer)
+function Base.getindex(s::Slice{T, N}, i::Integer) where {T, N}
     if 1 <= i <= s.n
         @inbounds x = s.data[i]
         return x
@@ -32,13 +32,13 @@ function Base.getindex{T, N}(s::Slice{T, N}, i::Integer)
 end
 
 
-@inline function unsafe_getindex{T, N}(s::Slice{T, N}, i::Integer)
+@inline function unsafe_getindex(s::Slice{T, N}, i::Integer) where {T, N}
     @inbounds x = s.data[i]
     return x
 end
 
 
-function Base.setindex!{T, N}(s::Slice{T, N}, value, i::Integer)
+function Base.setindex!(s::Slice{T, N}, value, i::Integer) where {T, N}
     if 1 <= i <= s.n
         @inbounds s.data[i] = value
         return value
@@ -48,7 +48,7 @@ function Base.setindex!{T, N}(s::Slice{T, N}, value, i::Integer)
 end
 
 
-function Base.push!{T, N}(s::Slice{T, N}, value)
+function Base.push!(s::Slice{T, N}, value) where {T, N}
     if s.n < N
         s.n += 1
         @inbounds s.data[s.n] = value
@@ -58,7 +58,7 @@ function Base.push!{T, N}(s::Slice{T, N}, value)
 end
 
 
-function Base.pop!{T, N}(s::Slice{T, N})
+function Base.pop!(s::Slice{T, N}) where {T, N}
     if s.n > 0
         @inbounds x = s.data[s.n]
         s.n -= 1
@@ -69,7 +69,7 @@ function Base.pop!{T, N}(s::Slice{T, N})
 end
 
 
-function Base.insert!{T, N}(s::Slice{T, N}, i::Integer, value)
+function Base.insert!(s::Slice{T, N}, i::Integer, value) where {T, N}
     if s.n < N && 1 <= i <= s.n + 1
         # TODO: This should work but won't. Fix this in Julia.
         #copy!(s.data, i+1, s.data, i, s.n - i + 1)
@@ -89,7 +89,7 @@ function Base.insert!{T, N}(s::Slice{T, N}, i::Integer, value)
 end
 
 
-function Base.resize!{T, N}(s::Slice{T, N}, n::Integer)
+function Base.resize!(s::Slice{T, N}, n::Integer) where {T, N}
     if 1 <= n <= N
         s.n = n
         return s
@@ -99,7 +99,7 @@ function Base.resize!{T, N}(s::Slice{T, N}, n::Integer)
 end
 
 
-function Base.splice!{T, N}(s::Slice{T, N}, i::Integer)
+function Base.splice!(s::Slice{T, N}, i::Integer) where {T, N}
     if 1 <= i <= s.n
         @inbounds x = s.data[i]
         for j in i:s.n-1
@@ -119,7 +119,7 @@ end
 
 
 
-function slice_insert!{T}(xs::Vector{T}, count::Integer, i::Integer, value::T)
+function slice_insert!(xs::Vector{T}, count::Integer, i::Integer, value::T) where T
     if count < length(xs) && 1 <= i <= count + 1
         if isbits(T)
             unsafe_copy!(pointer(xs, i+1),
@@ -138,7 +138,7 @@ function slice_insert!{T}(xs::Vector{T}, count::Integer, i::Integer, value::T)
 end
 
 
-function slice_splice!{T}(xs::Vector{T}, count::Integer, i::Integer)
+function slice_splice!(xs::Vector{T}, count::Integer, i::Integer) where T
     if 1 <= i <= count
         @inbounds x = xs[i]
         for j in i:count-1
@@ -150,5 +150,3 @@ function slice_splice!{T}(xs::Vector{T}, count::Integer, i::Integer)
         throw(BoundsError())
     end
 end
-
-

@@ -3,7 +3,6 @@ os:
   - linux
   - osx
 julia:
-  - 0.5
   - 0.6
   - nightly
 matrix:
@@ -13,4 +12,3 @@ notifications:
   email: false
 after_success:
   - julia -e 'cd(Pkg.dir("IntervalTrees")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'
-
