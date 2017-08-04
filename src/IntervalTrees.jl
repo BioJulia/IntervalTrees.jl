@@ -1433,7 +1433,7 @@ mutable struct IntersectionIterator{F, K, V1, B1, V2, B2}
     j::Int
     k::Int
 
-    function IntersectionIterator(filter::F, t1, t2, successive::Bool) where {F,K,V1,B1,V2,B2}
+    function IntersectionIterator{F,K,V1,B1,V2,B2}(filter::F, t1, t2, successive::Bool) where {F,K,V1,B1,V2,B2}
         return new{F,K,V1,B1,V2,B2}(filter, t1, t2, successive)
     end
 end
