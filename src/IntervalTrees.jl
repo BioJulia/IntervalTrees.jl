@@ -13,8 +13,6 @@ export
     from,
     value
 
-import Compat: @compat
-
 include("slice.jl")
 
 
@@ -22,7 +20,7 @@ include("slice.jl")
 An `AbstractInterval{T}` must have a `first` and `last` function each returning
 a value of type `T`, and `first(i) <= last(i)` must always be true.
 """
-@compat abstract type AbstractInterval{T} end
+abstract type AbstractInterval{T} end
 
 
 function basic_isless(u::AbstractInterval, v::AbstractInterval)
@@ -38,31 +36,31 @@ end
 """
 A basic interval.
 """
-immutable Interval{T} <: AbstractInterval{T}
+struct Interval{T} <: AbstractInterval{T}
     first::T
     last::T
 end
-Base.convert{T}(::Type{Interval{T}}, range::Range{T}) = Interval(first(range), last(range))
-Interval{T}(range::Range{T}) = convert(Interval{T}, range)
-Base.first{T}(i::Interval{T}) = i.first
-Base.last{T}(i::Interval{T}) = i.last
+Base.convert(::Type{Interval{T}}, range::Range{T}) where T = Interval(first(range), last(range))
+Interval(range::Range{T}) where T = convert(Interval{T}, range)
+Base.first(i::Interval{T}) where T = i.first
+Base.last(i::Interval{T}) where T = i.last
 
 
 """
 An interval with some associated data.
 """
-immutable IntervalValue{K, V} <: AbstractInterval{K}
+struct IntervalValue{K, V} <: AbstractInterval{K}
     first::K
     last::K
     value::V
 end
-IntervalValue{K, V}(range::Range{K}, value::V) = IntervalValue(first(range), last(range), value)
+IntervalValue(range::Range{K}, value::V) where {K, V} = IntervalValue(first(range), last(range), value)
 
-valtype{K,V}(::Type{IntervalValue{K,V}}) = V
+valtype(::Type{IntervalValue{K,V}}) where {K, V} = V
 
-Base.first{K, V}(i::IntervalValue{K, V}) = i.first
-Base.last{K, V}(i::IntervalValue{K, V}) = i.last
-value{K, V}(i::IntervalValue{K, V}) = i.value
+Base.first(i::IntervalValue{K, V}) where {K, V} = i.first
+Base.last(i::IntervalValue{K, V}) where {K, V} = i.last
+value(i::IntervalValue{K, V}) where {K, V} = i.value
 
 Base.print(io::IO, x::Interval) = print(io, "\n($(first(x)),$(last(x)))")
 function Base.show(io::IO, x::Interval)
@@ -82,10 +80,10 @@ end
 #        data. It must have `first`, `last`, and `isless` methods.
 #   B : Integer giving the B-tree order.
 
-@compat abstract type Node{K, V, B} end
+abstract type Node{K, V, B} end
 
 
-type InternalNode{K, V, B} <: Node{K, V, B}
+mutable struct InternalNode{K, V, B} <: Node{K, V, B}
     # Internal nodes are keyed by the minimum interval in the right subtree.  We
     # need internal node keys to be intervals themselves, since ordering by
     # start value alone only works if start values are unique. We don't
@@ -107,7 +105,7 @@ type InternalNode{K, V, B} <: Node{K, V, B}
     left::Nullable{InternalNode{K, V, B}}
     right::Nullable{InternalNode{K, V, B}}
 
-    function (::Type{InternalNode{K,V,B}}){K,V,B}()
+    function InternalNode{K,V,B}() where {K,V,B}
         return new{K,V,B}(
             Slice{Interval{K}, B}(), zero(K), Slice{K, B}(), Slice{Node{K, V, B}, B}(),
             Nullable{InternalNode{K, V, B}}(),
@@ -122,7 +120,7 @@ function minstart(t::InternalNode)
 end
 
 
-type LeafNode{K, V, B} <: Node{K, V, B}
+mutable struct LeafNode{K, V, B} <: Node{K, V, B}
     entries::Vector{V}
     keys::Vector{Interval{K}}
     count::UInt32 # number of stored entries
@@ -136,7 +134,7 @@ type LeafNode{K, V, B} <: Node{K, V, B}
     left::Nullable{LeafNode{K, V, B}}
     right::Nullable{LeafNode{K, V, B}}
 
-    function (::Type{LeafNode{K,V,B}}){K,V,B}()
+    function LeafNode{K,V,B}() where {K,V,B}
         return new{K,V,B}(
             Array{V}(B), Array{Interval{K}}(B), 0,
             zero(K),
@@ -152,34 +150,34 @@ function minstart(t::LeafNode)
 end
 
 
-function Base.resize!{K, V, B}(leaf::LeafNode{K, V, B}, n)
+function Base.resize!(leaf::LeafNode{K, V, B}, n) where {K, V, B}
     @assert 0 <= n <= B
     leaf.count = n
 end
 
 
-function Base.splice!{K, V, B}(leaf::LeafNode{K, V, B}, i::Integer)
+function Base.splice!(leaf::LeafNode{K, V, B}, i::Integer) where {K, V, B}
     slice_splice!(leaf.keys, leaf.count, i)
     x, leaf.count = slice_splice!(leaf.entries, leaf.count, i)
     return x
 end
 
 
-function Base.insert!{K, V, B}(leaf::LeafNode{K, V, B}, i::Integer, value::V)
+function Base.insert!(leaf::LeafNode{K, V, B}, i::Integer, value::V) where {K, V, B}
     slice_insert!(leaf.keys, leaf.count, i, Interval{K}(first(value), last(value)))
     slice_insert!(leaf.entries, leaf.count, i, value)
     leaf.count += 1
 end
 
 
-function Base.push!{K, V, B}(leaf::LeafNode{K, V, B}, value::V)
+function Base.push!(leaf::LeafNode{K, V, B}, value::V) where {K, V, B}
     leaf.count += 1
     leaf.entries[leaf.count] = value
     leaf.keys[leaf.count] = Interval{K}(first(value), last(value))
 end
 
 
-function Base.pop!{K, V, B}(leaf::LeafNode{K, V, B})
+function Base.pop!(leaf::LeafNode{K, V, B}) where {K, V, B}
     x = leaf.entries[leaf.count]
     leaf.count -= 1
     return x
@@ -202,11 +200,11 @@ function Base.done(leaf::LeafNode, i::Int)
 end
 
 
-type IntervalBTree{K, V, B}
+mutable struct IntervalBTree{K, V, B}
     root::Node{K, V, B}
     n::Int # Number of entries
 
-    function (::Type{IntervalBTree{K,V,B}}){K,V,B}()
+    function IntervalBTree{K,V,B}() where {K,V,B}
         return new{K,V,B}(LeafNode{K, V, B}(), 0)
     end
 
@@ -218,7 +216,7 @@ type IntervalBTree{K, V, B}
     # Args:
     #   entries: Interval entry values in sorted order.
     #
-    function (::Type{IntervalBTree{K,V,B}}){K,V,B}(entries::AbstractVector{V})
+    function IntervalBTree{K,V,B}(entries::AbstractVector{V}) where {K,V,B}
         if !issorted(entries, lt=basic_isless)
             error("Intervals must be sorted to construct an IntervalTree")
         end
@@ -295,7 +293,7 @@ end
 
 
 # Default B-tree order
-@compat const IntervalTree{K, V} = IntervalBTree{K, V, 64}
+const IntervalTree{K, V} = IntervalBTree{K, V, 64}
 
 # Show
 
@@ -368,13 +366,13 @@ end
 # ---------
 
 
-type IntervalBTreeIteratorState{K, V, B}
+mutable struct IntervalBTreeIteratorState{K, V, B}
     leaf::Nullable{LeafNode{K, V, B}}
     i::Int
 end
 
 
-function Base.start{K, V, B}(t::IntervalBTree{K, V, B})
+function Base.start(t::IntervalBTree{K, V, B}) where {K, V, B}
     # traverse to the first leaf node
     node = t.root
     while !isa(node, LeafNode{K, V, B})
@@ -384,8 +382,8 @@ function Base.start{K, V, B}(t::IntervalBTree{K, V, B})
 end
 
 
-function Base.next{K, V, B}(t::IntervalBTree{K, V, B},
-                            state::IntervalBTreeIteratorState{K, V, B})
+function Base.next(t::IntervalBTree{K, V, B},
+                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     leaf = get(state.leaf)
     entry = leaf.entries[state.i]
     if state.i < length(leaf)
@@ -398,8 +396,8 @@ function Base.next{K, V, B}(t::IntervalBTree{K, V, B},
 end
 
 
-function Base.done{K, V, B}(t::IntervalBTree{K, V, B},
-                            state::IntervalBTreeIteratorState{K, V, B})
+function Base.done(t::IntervalBTree{K, V, B},
+                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     return isnull(state.leaf) || isempty(get(state.leaf))
 end
 
@@ -407,20 +405,20 @@ end
 # Iterate from a given starting from the first interval that intersects a given
 # point.
 
-immutable IntervalFromIterator{K, V, B}
+struct IntervalFromIterator{K, V, B}
     t::IntervalBTree{K, V, B}
     p::K
 end
 
-Base.eltype{K,V,B}(::Type{IntervalFromIterator{K,V,B}}) = V
-Base.iteratorsize{K,V,B}(::Type{IntervalFromIterator{K,V,B}}) = Base.SizeUnknown()
+Base.eltype(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = V
+Base.iteratorsize(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = Base.SizeUnknown()
 
-function from{K, V, B}(t::IntervalBTree{K, V, B}, p)
+function from(t::IntervalBTree{K, V, B}, p) where {K, V, B}
     return IntervalFromIterator{K, V, B}(t, convert(K, p))
 end
 
 
-function Base.start{K, V, B}(it::IntervalFromIterator{K, V, B})
+function Base.start(it::IntervalFromIterator{K, V, B}) where {K, V, B}
     node, i = firstfrom(it.t, it.p)
     if i == 0
         return IntervalBTreeIteratorState{K, V, B}(Nullable{LeafNode{K, V, B}}(), i)
@@ -430,14 +428,14 @@ function Base.start{K, V, B}(it::IntervalFromIterator{K, V, B})
 end
 
 
-function Base.next{K, V, B}(it::IntervalFromIterator{K, V, B},
-                            state::IntervalBTreeIteratorState{K, V, B})
+function Base.next(it::IntervalFromIterator{K, V, B},
+                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     return next(it.t, state)
 end
 
 
-function Base.done{K, V, B}(it::IntervalFromIterator{K, V, B},
-                            state::IntervalBTreeIteratorState{K, V, B})
+function Base.done(it::IntervalFromIterator{K, V, B},
+                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     return done(it.t, state)
 end
 
@@ -447,7 +445,7 @@ end
 
 
 # Split a leaf into two, returning (leftnode, rightnode)
-function split!{K, V, B}(left::LeafNode{K, V, B})
+function split!(left::LeafNode{K, V, B}) where {K, V, B}
     right = LeafNode{K, V, B}()
     right.right = left.right
     right.left = left
@@ -478,7 +476,7 @@ end
 
 
 # Split an internal node in two, returning (leftnode, rightnode)
-function split!{K, V, B}(left::InternalNode{K, V, B})
+function split!(left::InternalNode{K, V, B}) where {K, V, B}
     right = InternalNode{K, V, B}()
     right.right = left.right
     right.left = left
@@ -521,7 +519,7 @@ end
 
 
 # Find the maximum interval end point is a subtree
-function nodemaxend{K, V, B}(t::InternalNode{K, V, B})
+function nodemaxend(t::InternalNode{K, V, B}) where {K, V, B}
     maxend = zero(K)
     for i in 1:length(t.children)
         maxend = max(maxend, t.children[i].maxend)
@@ -530,7 +528,7 @@ function nodemaxend{K, V, B}(t::InternalNode{K, V, B})
 end
 
 
-function nodemaxend{K, V, B}(t::LeafNode{K, V, B})
+function nodemaxend(t::LeafNode{K, V, B}) where {K, V, B}
     maxend = zero(K)
     for i in 1:length(t)
         maxend = max(maxend, last(t.keys[i]))
@@ -539,7 +537,7 @@ function nodemaxend{K, V, B}(t::LeafNode{K, V, B})
 end
 
 
-function sameparent{K, V, B}(u::Node{K, V, B}, v::Node{K, V, B})
+function sameparent(u::Node{K, V, B}, v::Node{K, V, B}) where {K, V, B}
     return (isnull(u.parent) && isnull(v.parent)) ||
            (!isnull(u.parent) && !isnull(v.parent) && get(u.parent) == get(v.parent))
 end
@@ -589,29 +587,29 @@ function minkey(t::InternalNode)
     return minkey(t.children[1])
 end
 
-function minkey{K, V, B}(t::LeafNode{K, V, B})
+function minkey(t::LeafNode{K, V, B}) where {K, V, B}
     return t.keys[1]
 end
 
 
-function Base.push!{K, V, B}(t::IntervalBTree{K, V, B}, entry::V,
-                             unique_key::Bool=false, update::Bool=true)
+function Base.push!(t::IntervalBTree{K, V, B}, entry::V,
+                    unique_key::Bool=false, update::Bool=true) where {K, V, B}
     return _push!(t, t.root, entry, unique_key, update)
 end
 
 
-function _push!{K, V, B}(t::IntervalBTree{K, V, B},
-                         node::InternalNode{K, V, B},
-                         entry::V, unique_key::Bool, update::Bool)
+function _push!(t::IntervalBTree{K, V, B},
+                node::InternalNode{K, V, B},
+                entry::V, unique_key::Bool, update::Bool) where {K, V, B}
     i = findidx(node, entry) # key index
     j = i <= length(node) - 1 && entry >= node.keys[i] ? i + 1 : i # child index
     return _push!(t, node.children[j], entry, unique_key, update)
 end
 
 
-function _push!{K, V, B}(t::IntervalBTree{K, V, B},
-                         node::LeafNode{K, V, B}, entry::V,
-                         unique_key::Bool, update::Bool)
+function _push!(t::IntervalBTree{K, V, B},
+                node::LeafNode{K, V, B}, entry::V,
+                unique_key::Bool, update::Bool) where {K, V, B}
     i = max(1, findidx(node, entry))
 
     # key exists and we are replacing it
@@ -704,17 +702,17 @@ end
 
 
 
-function deletefirst!{K, V, B}(t::IntervalBTree{K, V, B}, first::K, last::K)
+function deletefirst!(t::IntervalBTree{K, V, B}, first::K, last::K) where {K, V, B}
     return deletefirst!(t, Interval{K}(first, last))
 end
 
 
-function deletefirst!{K, V, B}(t::IntervalBTree{K, V, B}, key::Tuple{K, K})
+function deletefirst!(t::IntervalBTree{K, V, B}, key::Tuple{K, K}) where {K, V, B}
     return deletefirst!(t, Interval{K}(key[1], key[2]))
 end
 
 
-function deletefirst!{K, V, B}(t::IntervalBTree{K, V, B}, key::Interval{K})
+function deletefirst!(t::IntervalBTree{K, V, B}, key::Interval{K}) where {K, V, B}
     result = _deletefirst!(t.root, key)
     if result.keyfound
         t.n -= 1
@@ -731,7 +729,7 @@ end
 
 
 # Indicate what steps are need to account for an updated child.
-immutable KeyFate
+struct KeyFate
     value::UInt8
 end
 
@@ -744,7 +742,7 @@ const KEYFATE_UPDATE_RIGHT = KeyFate(4) # update the key separating the node
                                         # from its right sibling
 
 # Information returned from a call to _delete
-immutable DeleteResult
+struct DeleteResult
     keyfound::Bool # true if the key was found
 
     # Indicate what steps are need to account for an updated child. One of:
@@ -753,7 +751,7 @@ end
 
 
 # Delete key from the subtree if present. Return a DeleteResult object.
-function _deletefirst!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
+function _deletefirst!(t::InternalNode{K, V, B}, key::Interval{K}) where {K, V, B}
     i = findidx(t, key)
     j = i <= length(t) - 1 && key >= t.keys[i] ? i + 1 : i # child index
 
@@ -880,7 +878,7 @@ function _deletefirst!{K, V, B}(t::InternalNode{K, V, B}, key::Interval{K})
 end
 
 
-function _deletefirst!{K, V, B}(t::LeafNode{K, V, B}, key::Interval{K})
+function _deletefirst!(t::LeafNode{K, V, B}, key::Interval{K}) where {K, V, B}
     i = findidx(t, key)
 
     # do nothing if the key isn't present
@@ -961,7 +959,7 @@ end
 
 
 # Join two leaf nodes into one.
-function merge!{K, V, B}(left::LeafNode{K, V, B}, right::LeafNode{K, V, B})
+function merge!(left::LeafNode{K, V, B}, right::LeafNode{K, V, B}) where {K, V, B}
     leftlen, rightlen = length(left), length(right)
     @assert leftlen + rightlen <= B
     resize!(left, leftlen + rightlen)
@@ -973,7 +971,7 @@ end
 
 
 # Join two internal nodes into one
-function merge!{K, V, B}(left::InternalNode{K, V, B}, right::InternalNode{K, V, B})
+function merge!(left::InternalNode{K, V, B}, right::InternalNode{K, V, B}) where {K, V, B}
     leftlen, rightlen = length(left), length(right)
     @assert length(left) + length(right) <= B
     resize!(left.keys, leftlen + rightlen - 1)
@@ -994,7 +992,7 @@ end
 # Searching
 # ---------
 
-function findidx{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K})
+function findidx(t::LeafNode{K, V, B}, key::AbstractInterval{K}) where {K, V, B}
     if isempty(t)
         return 0
     end
@@ -1003,7 +1001,7 @@ function findidx{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K})
                              Base.ord(basic_isless, identity, false))
 end
 
-function findidx{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K})
+function findidx(t::InternalNode{K, V, B}, key::AbstractInterval{K}) where {K, V, B}
     if isempty(t.keys)
         return 0
     end
@@ -1011,14 +1009,14 @@ function findidx{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K})
     return min(i, length(t.keys))
 end
 
-function Base.haskey{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K})
+function Base.haskey(t::LeafNode{K, V, B}, key::AbstractInterval{K}) where {K, V, B}
     i = findidx(t, key)
     return 1 <= i <= length(t) && first(t.keys[i]) == key.first &&
            last(t.keys[i]) == key.last
 end
 
 
-function Base.haskey{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K})
+function Base.haskey(t::InternalNode{K, V, B}, key::AbstractInterval{K}) where {K, V, B}
     i = findidx(t, key)
     if i <= length(t) - 1 && key >= t.keys[i]
         return haskey(t.children[i+1], key)
@@ -1028,13 +1026,13 @@ function Base.haskey{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K}
 end
 
 
-function Base.haskey{K, V, B}(t::IntervalBTree{K, V, B}, key0::Tuple{Any, Any})
+function Base.haskey(t::IntervalBTree{K, V, B}, key0::Tuple{Any, Any}) where {K, V, B}
     key = Interval{K}(key0[1], key0[2])
     return haskey(t.root, key)
 end
 
 
-function Base.findfirst{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K}, f)
+function Base.findfirst(t::LeafNode{K, V, B}, key::AbstractInterval{K}, f) where {K, V, B}
     i = findidx(t, key)
     while 1 <= i <= length(t) &&
           first(t.keys[i]) == first(key) &&
@@ -1053,7 +1051,7 @@ function Base.findfirst{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K},
 end
 
 
-function Base.findfirst{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K}, f)
+function Base.findfirst(t::InternalNode{K, V, B}, key::AbstractInterval{K}, f) where {K, V, B}
     i = findidx(t, key)
     if i <= length(t) - 1 && key >= t.keys[i]
         return findfirst(t.children[i+1], key, f)
@@ -1065,14 +1063,14 @@ end
 
 true_cmp(a, b) = true
 
-function Base.findfirst{K, V, B}(t::IntervalBTree{K, V, B}, key::AbstractInterval{K},
-                                 f=true_cmp)
+function Base.findfirst(t::IntervalBTree{K, V, B}, key::AbstractInterval{K},
+                        f=true_cmp) where {K, V, B}
     return findfirst(t.root, key, f)
 end
 
 
-function Base.findfirst{K, V, B}(t::IntervalBTree{K, V, B}, key0::Tuple{Any, Any},
-                                 f=true_cmp)
+function Base.findfirst(t::IntervalBTree{K, V, B}, key0::Tuple{Any, Any},
+                        f=true_cmp) where {K, V, B}
     return findfirst(t, Interval{K}(key0[1], key0[2]), f)
 end
 
@@ -1094,18 +1092,18 @@ end
 #
 
 # Return true iff two key1 and key2 intersect.
-@inline function intersects{K}(key1::AbstractInterval{K}, key2::AbstractInterval{K})
+@inline function intersects(key1::AbstractInterval{K}, key2::AbstractInterval{K}) where K
     return first(key1) <= last(key2) && first(key2) <= last(key1)
 end
 
 
 # Return true if the tree has an intersection with the given position
-function hasintersection{K, V, B}(t::IntervalBTree{K, V, B}, query)
+function hasintersection(t::IntervalBTree{K, V, B}, query) where {K, V, B}
     return hasintersection(t.root, convert(K, query))
 end
 
 
-function hasintersection{K, V, B}(t::InternalNode{K, V, B}, query::K)
+function hasintersection(t::InternalNode{K, V, B}, query::K) where {K, V, B}
     if isempty(t) || t.maxend < query
         return false
     end
@@ -1124,7 +1122,7 @@ function hasintersection{K, V, B}(t::InternalNode{K, V, B}, query::K)
 end
 
 
-function hasintersection{K, V, B}(t::LeafNode{K, V, B}, query::K)
+function hasintersection(t::LeafNode{K, V, B}, query::K) where {K, V, B}
     if isempty(t) || t.maxend < query
         return false
     end
@@ -1144,12 +1142,12 @@ end
 # Represent an intersection in an IntervalTree by pointing to a LeafNode
 # and an index within that leaf node. No intersection is represented with
 # index == 0.
-type Intersection{K, V, B}
+mutable struct Intersection{K, V, B}
     index::Int
     node::LeafNode{K, V, B}
 
-    (::Type{Intersection{K,V,B}}){K,V,B}(index, node) = new{K,V,B}(index, node)
-    (::Type{Intersection{K,V,B}}){K,V,B}() = new{K,V,B}(0)
+    Intersection{K,V,B}(index, node) where {K,V,B} = new{K,V,B}(index, node)
+    Intersection{K,V,B}() where {K,V,B} = new{K,V,B}(0)
 end
 
 
@@ -1157,20 +1155,20 @@ end
 # as a (leafnode, index) pair, indicating that leafnode.keys[index] intersects.
 # If no intersection is found, index is 0 and leafnode is the last node
 # searched.
-function firstintersection!{F, K, V, B}(t::IntervalBTree{K, V, B},
-                                        query::AbstractInterval{K},
-                                        lower::Nullable{V},
-                                        out::Intersection{K, V, B},
-                                        filter::F)
+function firstintersection!(t::IntervalBTree{K, V, B},
+                            query::AbstractInterval{K},
+                            lower::Nullable{V},
+                            out::Intersection{K, V, B},
+                            filter::F) where {F, K, V, B}
     return firstintersection!(t.root, query, lower, out, filter)
 end
 
 
-function firstintersection!{F, K, V, B}(t::InternalNode{K, V, B},
-                                        query::AbstractInterval{K},
-                                        lower::Nullable{V},
-                                        out::Intersection{K, V, B},
-                                        filter::F)
+function firstintersection!(t::InternalNode{K, V, B},
+                            query::AbstractInterval{K},
+                            lower::Nullable{V},
+                            out::Intersection{K, V, B},
+                            filter::F) where {F, K, V, B}
     if isempty(t) || t.maxend < first(query)
         out.index = 0
         return
@@ -1200,11 +1198,11 @@ function firstintersection!{F, K, V, B}(t::InternalNode{K, V, B},
 end
 
 
-function firstintersection!{F, K, V, B}(t::LeafNode{K, V, B},
-                                        query::AbstractInterval{K},
-                                        lower::Nullable{V},
-                                        out::Intersection{K, V, B},
-                                        filter::F)
+function firstintersection!(t::LeafNode{K, V, B},
+                            query::AbstractInterval{K},
+                            lower::Nullable{V},
+                            out::Intersection{K, V, B},
+                            filter::F) where {F, K, V, B}
     if isempty(t) || t.maxend < first(query)
         out.index = 0
         return
@@ -1231,9 +1229,9 @@ function firstintersection!{F, K, V, B}(t::LeafNode{K, V, B},
 end
 
 
-function firstintersection{K, V, B}(t::InternalNode{K, V, B},
-                                    query::Interval{K},
-                                    lower::Nullable{Interval{K}})
+function firstintersection(t::InternalNode{K, V, B},
+                           query::Interval{K},
+                           lower::Nullable{Interval{K}}) where {K, V, B}
     if isempty(t) || t.maxend < first(query)
         return (Nullable{LeafNode{K, V, B}}(), 1)
     end
@@ -1256,8 +1254,8 @@ function firstintersection{K, V, B}(t::InternalNode{K, V, B},
 end
 
 
-function firstintersection{K, V, B}(t::LeafNode{K, V, B}, query::Interval{K},
-                                    lower::Nullable{Interval{K}})
+function firstintersection(t::LeafNode{K, V, B}, query::Interval{K},
+                           lower::Nullable{Interval{K}}) where {K, V, B}
 
     if isempty(t) || t.maxend < first(query)
         return (Nullable{LeafNode{K, V, B}}(), 1)
@@ -1278,12 +1276,12 @@ end
 
 
 # Find the first key with an end point >= query
-function firstfrom{K, V, B}(t::IntervalBTree{K, V, B}, query::K)
+function firstfrom(t::IntervalBTree{K, V, B}, query::K) where {K, V, B}
     return firstfrom(t.root, query)
 end
 
 
-function firstfrom{K, V, B}(t::InternalNode{K, V, B}, query::K)
+function firstfrom(t::InternalNode{K, V, B}, query::K) where {K, V, B}
     if isempty(t)
         return (t, 0)
     end
@@ -1298,7 +1296,7 @@ function firstfrom{K, V, B}(t::InternalNode{K, V, B}, query::K)
 end
 
 
-function firstfrom{K, V, B}(t::LeafNode{K, V, B}, query::K)
+function firstfrom(t::LeafNode{K, V, B}, query::K) where {K, V, B}
     if isempty(t)
         return (t, 0)
     end
@@ -1316,10 +1314,10 @@ end
 
 # If query intersects node.keys[i], return the next intersecting key as
 # a (leafnode, index) pair.
-function nextintersection!{F, K, V, B}(t::LeafNode{K, V, B}, i::Integer,
-                                      query::AbstractInterval{K},
-                                      out::Intersection{K, V, B},
-                                      filter::F)
+function nextintersection!(t::LeafNode{K, V, B}, i::Integer,
+                           query::AbstractInterval{K},
+                           out::Intersection{K, V, B},
+                           filter::F) where {F, K, V, B}
     j = i + 1
     while true
         while j <= length(t)
@@ -1356,52 +1354,52 @@ function nextintersection!{F, K, V, B}(t::LeafNode{K, V, B}, i::Integer,
 end
 
 
-type IntervalIntersectionIterator{F, K, V, B}
+mutable struct IntervalIntersectionIterator{F, K, V, B}
     filter::F
     intersection::Intersection{K, V, B}
     t::IntervalBTree{K, V, B}
     query::AbstractInterval{K}
 
-    function (::Type{IntervalIntersectionIterator{F,K,V,B}}){F,K,V,B}(filter, intersection, t, query)
+    function IntervalIntersectionIterator{F,K,V,B}(filter, intersection, t, query) where {F,K,V,B}
         return new{F,K,V,B}(filter, intersection, t, query)
     end
 
-    function (::Type{IntervalIntersectionIterator{F,K,V,B}}){F,K,V,B}()
+    function IntervalIntersectionIterator{F,K,V,B}() where {F,K,V,B}
         return new{F,K,V,B}(Intersection{F, K, V, B}())
     end
 end
 
-Base.eltype{F,K,V,B}(::Type{IntervalIntersectionIterator{F,K,V,B}}) = V
-Base.iteratorsize{F,K,V,B}(::Type{IntervalIntersectionIterator{F,K,V,B}}) = Base.SizeUnknown()
+Base.eltype(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = V
+Base.iteratorsize(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = Base.SizeUnknown()
 
 # Intersect an interval tree t with a single interval, returning an iterator
 # over the intersecting (key, value) pairs in t.
-function Base.intersect{F, K, V, B}(t::IntervalBTree{K, V, B}, query0::Tuple{Any, Any},
-                                 filter::F=true_cmp)
+function Base.intersect(t::IntervalBTree{K, V, B}, query0::Tuple{Any, Any},
+                        filter::F=true_cmp) where {F, K, V, B}
     query = Interval{K}(query0[1], query0[2])
     return intersect(t, query, filter)
 end
 
 
-function Base.intersect{F, K, V, B}(t::IntervalBTree{K, V, B}, first::K, last::K,
-                                    filter::F=true_cmp)
+function Base.intersect(t::IntervalBTree{K, V, B}, first::K, last::K,
+                        filter::F=true_cmp) where {F, K, V, B}
     query = Interval{K}(first, last)
     return intersect(t, query, filter)
 end
 
 
-function Base.intersect{F, K, V, B}(t::IntervalBTree{K, V, B}, query::AbstractInterval{K},
-                                 filter::F=true_cmp)
+function Base.intersect(t::IntervalBTree{K, V, B}, query::AbstractInterval{K},
+                        filter::F=true_cmp) where {F, K, V, B}
     return IntervalIntersectionIterator{F, K, V, B}(filter, Intersection{K, V, B}(), t, query)
 end
 
 
-function Base.start{F, K, V, B}(it::IntervalIntersectionIterator{F, K, V, B})
+function Base.start(it::IntervalIntersectionIterator{F, K, V, B}) where {F, K, V, B}
     return firstintersection!(it.t, it.query, Nullable{V}(), it.intersection, it.filter)
 end
 
 
-function Base.next{F, K, V, B}(it::IntervalIntersectionIterator{F, K, V, B}, ::Void)
+function Base.next(it::IntervalIntersectionIterator{F, K, V, B}, ::Void) where {F, K, V, B}
     intersection = it.intersection
     entry = intersection.node.entries[intersection.index]
     nextintersection!(intersection.node, intersection.index,
@@ -1410,12 +1408,12 @@ function Base.next{F, K, V, B}(it::IntervalIntersectionIterator{F, K, V, B}, ::V
 end
 
 
-function Base.done{F, K, V, B}(it::IntervalIntersectionIterator{F, K, V, B}, ::Void)
+function Base.done(it::IntervalIntersectionIterator{F, K, V, B}, ::Void) where {F, K, V, B}
     return it.intersection.index == 0
 end
 
 
-type IntersectionIterator{F, K, V1, B1, V2, B2}
+mutable struct IntersectionIterator{F, K, V1, B1, V2, B2}
     filter::F
 
     t1::IntervalBTree{K, V1, B1}
@@ -1435,15 +1433,15 @@ type IntersectionIterator{F, K, V1, B1, V2, B2}
     j::Int
     k::Int
 
-    function (::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}){F,K,V1,B1,V2,B2}(filter::F, t1, t2, successive::Bool)
+    function IntersectionIterator{F,K,V1,B1,V2,B2}(filter::F, t1, t2, successive::Bool) where {F,K,V1,B1,V2,B2}
         return new{F,K,V1,B1,V2,B2}(filter, t1, t2, successive)
     end
 end
 
-Base.eltype{F,K,V1,B1,V2,B2}(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) = Tuple{V1,V2}
-Base.iteratorsize{F,K,V1,B1,V2,B2}(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) = Base.SizeUnknown()
+Base.eltype(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Tuple{V1,V2}
+Base.iteratorsize(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Base.SizeUnknown()
 
-function Base.start{F, K, V1, B1, V2, B2}(it::IntersectionIterator{F, K, V1, B1, V2, B2})
+function Base.start(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
     it.isdone = true
     if it.successive
         it.u = isempty(it.t1) ? Nullable{LeafNode{K, V1, B1}}() : firstleaf(it.t1)
@@ -1477,8 +1475,9 @@ function Base.start{F, K, V1, B1, V2, B2}(it::IntersectionIterator{F, K, V1, B1,
 end
 
 
-function iterative_nextintersection!{F, K, V1, B1, V2, B2}(
-                        it::IntersectionIterator{F, K, V1, B1, V2, B2})
+function iterative_nextintersection!(
+    it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
+
     u, v, w, i, j, k = it.u, it.v, it.w, it.i, it.j, it.k
 
     it.isdone = true
@@ -1551,8 +1550,9 @@ function iterative_nextintersection!{F, K, V1, B1, V2, B2}(
 end
 
 
-function successive_nextintersection!{F, K, V1, B1, V2, B2}(
-                        it::IntersectionIterator{F, K, V1, B1, V2, B2})
+function successive_nextintersection!(
+    it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
+
     u, w, i, k = it.u, it.w, it.i, it.k
 
     it.isdone = true
@@ -1624,7 +1624,8 @@ function successive_nextintersection!{F, K, V1, B1, V2, B2}(
 end
 
 
-function Base.next{F, K, V1, B1, V2, B2}(it::IntersectionIterator{F, K, V1, B1, V2, B2}, state)
+function Base.next(it::IntersectionIterator{F, K, V1, B1, V2, B2},
+                   state) where {F, K, V1, B1, V2, B2}
     if it.successive
         u = get(it.u)
         w = get(it.w)
@@ -1653,9 +1654,9 @@ end
 #
 # Where key1 is from the first tree and key2 from the second, and they
 # intersect.
-function Base.intersect{F, K, V1, B1, V2, B2}(t1::IntervalBTree{K, V1, B1},
-                                           t2::IntervalBTree{K, V2, B2},
-                                           filter::F=true_cmp; method=:auto)
+function Base.intersect(t1::IntervalBTree{K, V1, B1},
+                        t2::IntervalBTree{K, V2, B2},
+                        filter::F=true_cmp; method=:auto) where {F, K, V1, B1, V2, B2}
     # We decide heuristically which intersection algorithm to use.
     m = length(t1)
     n = length(t2)

@@ -1,32 +1,32 @@
 # IntervalTree map operations
 
-@compat const IntervalMap{K, V} = IntervalTree{K, IntervalValue{K, V}}
+const IntervalMap{K, V} = IntervalTree{K, IntervalValue{K, V}}
 
 
-function Base.setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value,
-                                 key::Tuple{Any, Any})
+function Base.setindex!(t::IntervalBTree{K, V, B}, value,
+                        key::Tuple{Any, Any}) where {K, V, B}
     push!(t, V(key[1], key[2], value), true)
 end
 
 
-function Base.setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value,
-                                 key::Interval{K})
+function Base.setindex!(t::IntervalBTree{K, V, B}, value,
+                        key::Interval{K}) where {K, V, B}
     push!(t, V(key.first, key.last, value), true)
 end
 
 
-function Base.setindex!{K, V, B}(t::IntervalBTree{K, V, B}, value,
-                                 first, last)
+function Base.setindex!(t::IntervalBTree{K, V, B}, value,
+                        first, last) where {K, V, B}
     push!(t, V(first, last, value), true)
 end
 
 
-function Base.getindex{K, V, B}(t::IntervalBTree{K, V, B}, key::AbstractInterval{K})
+function Base.getindex(t::IntervalBTree{K, V, B}, key::AbstractInterval{K}) where {K, V, B}
     return _getindex(t.root, key)
 end
 
 
-function _getindex{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K})
+function _getindex(t::InternalNode{K, V, B}, key::AbstractInterval{K}) where {K, V, B}
     i = findidx(t, key)
     if 1 <= length(t) - 1 && key >= t.keys[i]
         return _getindex(t.children[i+1], key)
@@ -36,7 +36,7 @@ function _getindex{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K})
 end
 
 
-function _getindex{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K})
+function _getindex(t::LeafNode{K, V, B}, key::AbstractInterval{K}) where {K, V, B}
     i = findidx(t, key)
     if 1 <= i <= length(t) && first(t.entries[i]) == first(key) &&
         last(t.entries[i]) == last(key)
@@ -47,17 +47,17 @@ function _getindex{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K})
 end
 
 
-function Base.get{K, V, B}(t::IntervalBTree{K, V, B}, key::Tuple{Any, Any}, default)
+function Base.get(t::IntervalBTree{K, V, B}, key::Tuple{Any, Any}, default) where {K, V, B}
     return _get(t.root, Interval{K}(key[1], key[2]), default)
 end
 
 
-function Base.get{K, V, B}(t::IntervalBTree{K, V, B}, key::AbstractInterval{K}, default)
+function Base.get(t::IntervalBTree{K, V, B}, key::AbstractInterval{K}, default) where {K, V, B}
     return _get(t.root, key, default)
 end
 
 
-function _get{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K}, default)
+function _get(t::InternalNode{K, V, B}, key::AbstractInterval{K}, default) where {K, V, B}
     i = findidx(t, key)
     if 1 <= length(t) - 1 && key >= t.keys[i]
         return _get(t.children[i+1], key, default)
@@ -67,7 +67,7 @@ function _get{K, V, B}(t::InternalNode{K, V, B}, key::AbstractInterval{K}, defau
 end
 
 
-function _get{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K}, default)
+function _get(t::LeafNode{K, V, B}, key::AbstractInterval{K}, default) where {K, V, B}
     i = findidx(t, key)
     if 1 <= i <= length(t) &&
         first(t.entries[i]) == first(key) && last(t.entries[i]) == last(key)
@@ -78,37 +78,37 @@ function _get{K, V, B}(t::LeafNode{K, V, B}, key::AbstractInterval{K}, default)
 end
 
 
-function Base.get!{K, V, B}(t::IntervalBTree{K, V, B}, key::Tuple{Any, Any}, default)
+function Base.get!(t::IntervalBTree{K, V, B}, key::Tuple{Any, Any}, default) where {K, V, B}
     return push!(t, V(key[1], key[2], default), true, false)
 end
 
 
-function Base.get!{K, V, B}(t::IntervalBTree{K, V, B}, key::AbstractInterval{K}, default)
+function Base.get!(t::IntervalBTree{K, V, B}, key::AbstractInterval{K}, default) where {K, V, B}
     return push!(t, V(key.first, key.last, default), true, false)
 end
 
 
-function Base.delete!{K, V, B}(t::IntervalBTree{K, V, B}, first, last)
+function Base.delete!(t::IntervalBTree{K, V, B}, first, last) where {K, V, B}
     return deletefirst!(t, first, last)
 end
 
 
-function Base.delete!{K, V, B}(t::IntervalBTree{K, V, B}, key::Tuple{Any, Any})
+function Base.delete!(t::IntervalBTree{K, V, B}, key::Tuple{Any, Any}) where {K, V, B}
     return deletefirst!(t, key)
 end
 
 
-function Base.delete!{K, V, B}(t::IntervalBTree{K, V, B}, key::Interval{K})
+function Base.delete!(t::IntervalBTree{K, V, B}, key::Interval{K}) where {K, V, B}
     return deletefirst!(t, key)
 end
 
 
-immutable IntervalKeyIterator{K, V, B}
+struct IntervalKeyIterator{K, V, B}
     t::IntervalBTree{K, V, B}
 end
 
-Base.eltype{K,V,B}(::Type{IntervalKeyIterator{K,V,B}}) = Interval{K}
-Base.iteratorsize{K,V,B}(::Type{IntervalKeyIterator{K,V,B}}) = Base.SizeUnknown()
+Base.eltype(::Type{IntervalKeyIterator{K,V,B}}) where {K,V,B} = Interval{K}
+Base.iteratorsize(::Type{IntervalKeyIterator{K,V,B}}) where {K,V,B} = Base.SizeUnknown()
 
 
 function Base.keys(t::IntervalBTree)
@@ -116,7 +116,7 @@ function Base.keys(t::IntervalBTree)
 end
 
 
-function Base.start{K, V, B}(it::IntervalKeyIterator{K, V, B})
+function Base.start(it::IntervalKeyIterator{K, V, B}) where {K, V, B}
     # traverse to the first leaf node
     node = it.t.root
     while !isa(node, LeafNode{K, V, B})
@@ -127,8 +127,8 @@ function Base.start{K, V, B}(it::IntervalKeyIterator{K, V, B})
 end
 
 
-function Base.next{K, V, B}(t::IntervalKeyIterator{K, V, B},
-                            state::IntervalBTreeIteratorState{K, V, B})
+function Base.next(t::IntervalKeyIterator{K, V, B},
+                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     leaf = get(state.leaf)
     key = Interval{K}(first(leaf.entries[state.i]),
                       last(leaf.entries[state.i]))
@@ -141,26 +141,26 @@ function Base.next{K, V, B}(t::IntervalKeyIterator{K, V, B},
 end
 
 
-function Base.done{K, V, B}(t::IntervalKeyIterator{K, V, B},
-                            state::IntervalBTreeIteratorState{K, V, B})
+function Base.done(t::IntervalKeyIterator{K, V, B},
+                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     return isnull(state.leaf) || isempty(get(state.leaf))
 end
 
 
-immutable IntervalValueIterator{K, V <: IntervalValue, B}
+struct IntervalValueIterator{K, V <: IntervalValue, B}
     t::IntervalBTree{K, V, B}
 end
 
-Base.eltype{K,V,B}(::Type{IntervalValueIterator{K,V,B}}) = valtype(V)
-Base.iteratorsize{K,V,B}(::Type{IntervalValueIterator{K,V,B}}) = Base.SizeUnknown()
+Base.eltype(::Type{IntervalValueIterator{K,V,B}}) where {K,V,B} = valtype(V)
+Base.iteratorsize(::Type{IntervalValueIterator{K,V,B}}) where {K,V,B} = Base.SizeUnknown()
 
 
-function Base.values{K, V <: IntervalValue, B}(t::IntervalBTree{K, V, B})
+function Base.values(t::IntervalBTree{K, V, B}) where {K, V<:IntervalValue, B}
     return IntervalValueIterator(t)
 end
 
 
-function Base.start{K, V, B}(it::IntervalValueIterator{K, V, B})
+function Base.start(it::IntervalValueIterator{K, V, B}) where {K, V, B}
     # traverse to the first leaf node
     node = it.t.root
     while !isa(node, LeafNode{K, V, B})
@@ -171,8 +171,8 @@ function Base.start{K, V, B}(it::IntervalValueIterator{K, V, B})
 end
 
 
-function Base.next{K, V, B}(t::IntervalValueIterator{K, V, B},
-                            state::IntervalBTreeIteratorState{K, V, B})
+function Base.next(t::IntervalValueIterator{K, V, B},
+                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     leaf = get(state.leaf)
     value = leaf.entries[state.i].value
     if state.i < length(leaf)
@@ -184,7 +184,7 @@ function Base.next{K, V, B}(t::IntervalValueIterator{K, V, B},
 end
 
 
-function Base.done{K, V, B}(t::IntervalValueIterator{K, V, B},
-                            state::IntervalBTreeIteratorState{K, V, B})
+function Base.done(t::IntervalValueIterator{K, V, B},
+                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     return isnull(state.leaf) || isempty(get(state.leaf))
 end
