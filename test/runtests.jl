@@ -1,11 +1,6 @@
 #!/usr/bin/env julia
 
-if VERSION >= v"0.5-"
-    using Base.Test
-else
-    using BaseTestNext
-    const Test = BaseTestNext
-end
+using Base.Test
 
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
@@ -45,7 +40,7 @@ end
 
 
 # Verify that internal node keys and maxend values are correct
-function validkeys{K, V, B}(t::IntervalTrees.IntervalBTree{K, V, B})
+function validkeys(t::IntervalTrees.IntervalBTree{K, V, B}) where {K, V, B}
     minint = IntervalTrees.Interval{K}(0, 0)
     maxint = IntervalTrees.Interval{K}(maxend, maxend)
     return validkeys(t.root, minint, maxint)
