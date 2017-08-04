@@ -36,7 +36,7 @@ end
 """
 A basic interval.
 """
-immutable Interval{T} <: AbstractInterval{T}
+struct Interval{T} <: AbstractInterval{T}
     first::T
     last::T
 end
@@ -49,7 +49,7 @@ Base.last(i::Interval{T}) where T = i.last
 """
 An interval with some associated data.
 """
-immutable IntervalValue{K, V} <: AbstractInterval{K}
+struct IntervalValue{K, V} <: AbstractInterval{K}
     first::K
     last::K
     value::V
@@ -83,7 +83,7 @@ end
 abstract type Node{K, V, B} end
 
 
-type InternalNode{K, V, B} <: Node{K, V, B}
+mutable struct InternalNode{K, V, B} <: Node{K, V, B}
     # Internal nodes are keyed by the minimum interval in the right subtree.  We
     # need internal node keys to be intervals themselves, since ordering by
     # start value alone only works if start values are unique. We don't
@@ -120,7 +120,7 @@ function minstart(t::InternalNode)
 end
 
 
-type LeafNode{K, V, B} <: Node{K, V, B}
+mutable struct LeafNode{K, V, B} <: Node{K, V, B}
     entries::Vector{V}
     keys::Vector{Interval{K}}
     count::UInt32 # number of stored entries
@@ -134,7 +134,7 @@ type LeafNode{K, V, B} <: Node{K, V, B}
     left::Nullable{LeafNode{K, V, B}}
     right::Nullable{LeafNode{K, V, B}}
 
-    function (::Type{LeafNode{K,V,B}}){K,V,B}()
+    function LeafNode{K,V,B}() where {K,V,B}
         return new{K,V,B}(
             Array{V}(B), Array{Interval{K}}(B), 0,
             zero(K),
@@ -200,11 +200,11 @@ function Base.done(leaf::LeafNode, i::Int)
 end
 
 
-type IntervalBTree{K, V, B}
+mutable struct IntervalBTree{K, V, B}
     root::Node{K, V, B}
     n::Int # Number of entries
 
-    function (::Type{IntervalBTree{K,V,B}}){K,V,B}()
+    function IntervalBTree{K,V,B}() where {K,V,B}
         return new{K,V,B}(LeafNode{K, V, B}(), 0)
     end
 
@@ -216,7 +216,7 @@ type IntervalBTree{K, V, B}
     # Args:
     #   entries: Interval entry values in sorted order.
     #
-    function (::Type{IntervalBTree{K,V,B}}){K,V,B}(entries::AbstractVector{V})
+    function IntervalBTree{K,V,B}(entries::AbstractVector{V}) where {K,V,B}
         if !issorted(entries, lt=basic_isless)
             error("Intervals must be sorted to construct an IntervalTree")
         end
@@ -366,7 +366,7 @@ end
 # ---------
 
 
-type IntervalBTreeIteratorState{K, V, B}
+mutable struct IntervalBTreeIteratorState{K, V, B}
     leaf::Nullable{LeafNode{K, V, B}}
     i::Int
 end
@@ -405,7 +405,7 @@ end
 # Iterate from a given starting from the first interval that intersects a given
 # point.
 
-immutable IntervalFromIterator{K, V, B}
+struct IntervalFromIterator{K, V, B}
     t::IntervalBTree{K, V, B}
     p::K
 end
@@ -729,7 +729,7 @@ end
 
 
 # Indicate what steps are need to account for an updated child.
-immutable KeyFate
+struct KeyFate
     value::UInt8
 end
 
@@ -742,7 +742,7 @@ const KEYFATE_UPDATE_RIGHT = KeyFate(4) # update the key separating the node
                                         # from its right sibling
 
 # Information returned from a call to _delete
-immutable DeleteResult
+struct DeleteResult
     keyfound::Bool # true if the key was found
 
     # Indicate what steps are need to account for an updated child. One of:
@@ -1142,12 +1142,12 @@ end
 # Represent an intersection in an IntervalTree by pointing to a LeafNode
 # and an index within that leaf node. No intersection is represented with
 # index == 0.
-type Intersection{K, V, B}
+mutable struct Intersection{K, V, B}
     index::Int
     node::LeafNode{K, V, B}
 
-    (::Type{Intersection{K,V,B}}){K,V,B}(index, node) = new{K,V,B}(index, node)
-    (::Type{Intersection{K,V,B}}){K,V,B}() = new{K,V,B}(0)
+    Intersection{K,V,B}(index, node) where {K,V,B} = new{K,V,B}(index, node)
+    Intersection{K,V,B}() where {K,V,B} = new{K,V,B}(0)
 end
 
 
@@ -1354,17 +1354,17 @@ function nextintersection!(t::LeafNode{K, V, B}, i::Integer,
 end
 
 
-type IntervalIntersectionIterator{F, K, V, B}
+mutable struct IntervalIntersectionIterator{F, K, V, B}
     filter::F
     intersection::Intersection{K, V, B}
     t::IntervalBTree{K, V, B}
     query::AbstractInterval{K}
 
-    function (::Type{IntervalIntersectionIterator{F,K,V,B}}){F,K,V,B}(filter, intersection, t, query)
+    function IntervalIntersectionIterator{F,K,V,B}(filter, intersection, t, query) where {F,K,V,B}
         return new{F,K,V,B}(filter, intersection, t, query)
     end
 
-    function (::Type{IntervalIntersectionIterator{F,K,V,B}}){F,K,V,B}()
+    function IntervalIntersectionIterator{F,K,V,B}() where {F,K,V,B}
         return new{F,K,V,B}(Intersection{F, K, V, B}())
     end
 end
@@ -1413,7 +1413,7 @@ function Base.done(it::IntervalIntersectionIterator{F, K, V, B}, ::Void) where {
 end
 
 
-type IntersectionIterator{F, K, V1, B1, V2, B2}
+mutable struct IntersectionIterator{F, K, V1, B1, V2, B2}
     filter::F
 
     t1::IntervalBTree{K, V1, B1}
@@ -1433,7 +1433,7 @@ type IntersectionIterator{F, K, V1, B1, V2, B2}
     j::Int
     k::Int
 
-    function (::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}){F,K,V1,B1,V2,B2}(filter::F, t1, t2, successive::Bool)
+    function IntersectionIterator(filter::F, t1, t2, successive::Bool) where {F,K,V1,B1,V2,B2}
         return new{F,K,V1,B1,V2,B2}(filter, t1, t2, successive)
     end
 end

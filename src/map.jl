@@ -103,7 +103,7 @@ function Base.delete!(t::IntervalBTree{K, V, B}, key::Interval{K}) where {K, V, 
 end
 
 
-immutable IntervalKeyIterator{K, V, B}
+struct IntervalKeyIterator{K, V, B}
     t::IntervalBTree{K, V, B}
 end
 
@@ -147,7 +147,7 @@ function Base.done(t::IntervalKeyIterator{K, V, B},
 end
 
 
-immutable IntervalValueIterator{K, V <: IntervalValue, B}
+struct IntervalValueIterator{K, V <: IntervalValue, B}
     t::IntervalBTree{K, V, B}
 end
 

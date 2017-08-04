@@ -3,11 +3,11 @@
 # We would like for those to behave as though they are resized without actually
 # doing any reallocation.
 
-type Slice{T, N} <: AbstractVector{T}
+mutable struct Slice{T, N} <: AbstractVector{T}
     data::Vector{T}
     n::Int # Number of stored elements
 
-    function (::Type{Slice{T,N}}){T,N}()
+    function Slice{T,N}() where {T,N}
         return new{T,N}(Vector{T}(N), 0)
     end
 end
