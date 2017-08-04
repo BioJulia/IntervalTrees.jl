@@ -105,7 +105,7 @@ type InternalNode{K, V, B} <: Node{K, V, B}
     left::Nullable{InternalNode{K, V, B}}
     right::Nullable{InternalNode{K, V, B}}
 
-    function (::Type{InternalNode{K,V,B}}){K,V,B}()
+    function InternalNode{K,V,B}() where {K,V,B}
         return new{K,V,B}(
             Slice{Interval{K}, B}(), zero(K), Slice{K, B}(), Slice{Node{K, V, B}, B}(),
             Nullable{InternalNode{K, V, B}}(),
