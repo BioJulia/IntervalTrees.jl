@@ -21,12 +21,12 @@ values of type `K` giving the inclusive range of the interval.
 
 There are also basic interval type provided:
 ```julia
-immutable Interval{T} <: AbstractInterval{T}
+struct Interval{T} <: AbstractInterval{T}
     first::T
     last::T
 end
 
-immutable IntervalValue{K, V} <: AbstractInterval{K}
+struct IntervalValue{K, V} <: AbstractInterval{K}
     first::K
     last::K
     value::V
@@ -155,4 +155,3 @@ Since all the intervals and values are stored in contiguous memory in the leaf
 nodes, and the leaf nodes augmented with sibling pointers, in-order traversal is
 exceedingly efficient compared to other balanced search trees, while other
 operations are comparable in performance.
-
