@@ -304,6 +304,38 @@ end
     @test all(Bool[hasintersection(t, interval[end]) for interval in intervals])
     @test !all(Bool[hasintersection(t, interval[1]) for interval in gaps])
     @test !all(Bool[hasintersection(t, interval[end]) for interval in gaps])
+
+    # firstintersection with lower bound
+    T = IntervalTrees.IntervalBTree{Int, Interval{Int}, 4}
+
+    xs = [
+        # leaf node 1
+        Interval(1, 1),
+        Interval(1, 4),
+        Interval(2, 2),
+        Interval(2, 2),
+
+        # leaf node 2
+        Interval(3, 3),
+        Interval(3, 3),
+        Interval(3, 3),
+        Interval(3, 3),
+
+        # leaf node 3
+        Interval(4, 4),
+        Interval(4, 4),
+        Interval(4, 4),
+        Interval(4, 4),
+    ]
+
+    t = T([Interval(4,4)])
+
+    @test !isnull(IntervalTrees.firstintersection(t.root, Interval(4,4), Nullable(Interval(2,2)))[1])
+
+    i = IntervalTrees.Intersection{Int, Interval{Int}, 4}()
+    IntervalTrees.firstintersection!(t, Interval(4,4), Nullable(Interval(2,2)),
+                                     i, IntervalTrees.true_cmp)
+    @test i != 0
 end
 
 
