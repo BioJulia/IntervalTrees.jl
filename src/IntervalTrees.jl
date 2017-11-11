@@ -1176,7 +1176,7 @@ function firstintersection!(t::InternalNode{K, V, B},
 
     (query_first, query_last) = (first(query), last(query))
 
-    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.keys, get(lower))
+    i = isnull(lower) ? 1 : searchsortedfirst(t.keys, get(lower))
 
     while i <= length(t.children)
         if i > 1 && unsafe_getindex(t.keys, i-1).first > query_last
@@ -1210,7 +1210,7 @@ function firstintersection!(t::LeafNode{K, V, B},
 
     # TODO: search keys
     i = isnull(lower) ? 1 :
-        1 + searchsortedlast(t.entries, get(lower), 1, Int(t.count),
+        searchsortedfirst(t.entries, get(lower), 1, Int(t.count),
                              Base.ord(basic_isless, identity, false))
 
     while i <= length(t)
@@ -1236,7 +1236,7 @@ function firstintersection(t::InternalNode{K, V, B},
         return (Nullable{LeafNode{K, V, B}}(), 1)
     end
 
-    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.keys, get(lower))
+    i = isnull(lower) ? 1 : searchsortedfirst(t.keys, get(lower))
 
     while i <= length(t.children)
         if i > 1 && unsafe_getindex(t.keys, i-1).first > last(query)
@@ -1244,8 +1244,11 @@ function firstintersection(t::InternalNode{K, V, B},
         end
 
         if t.maxends[i] >= first(query)
-            return firstintersection(unsafe_getindex(t.children, i), query,
+            w, k = firstintersection(unsafe_getindex(t.children, i), query,
                                      lower)
+            if !isnull(w)
+                return w, k
+            end
         end
         i += 1
     end
@@ -1261,9 +1264,11 @@ function firstintersection(t::LeafNode{K, V, B}, query::Interval{K},
         return (Nullable{LeafNode{K, V, B}}(), 1)
     end
 
-    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.keys, get(lower))
+    i = isnull(lower) ? 1 : searchsortedfirst(t.keys, get(lower))
+
     while i <= length(t)
-        if intersects(t.keys[i], query)
+        if intersects(t.keys[i], query) &&
+           (isnull(lower) || !basic_isless(t.keys[i], get(lower)))
             return (Nullable(t), i)
         elseif last(query) < first(t.keys[i])
             break
