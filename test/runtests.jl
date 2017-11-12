@@ -335,7 +335,7 @@ end
     i = IntervalTrees.Intersection{Int, Interval{Int}, 4}()
     IntervalTrees.firstintersection!(t, Interval(4,4), Nullable(Interval(2,2)),
                                      i, IntervalTrees.true_cmp)
-    @test i != 0
+    @test i.index != 0
 end
 
 
