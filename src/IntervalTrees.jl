@@ -382,8 +382,8 @@ function Base.start(t::IntervalBTree{K, V, B}) where {K, V, B}
 end
 
 
-function Base.next(t::IntervalBTree{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
+@inline function Base.next(t::IntervalBTree{K, V, B},
+                           state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     leaf = get(state.leaf)
     entry = leaf.entries[state.i]
     if state.i < length(leaf)
@@ -1629,8 +1629,8 @@ function successive_nextintersection!(
 end
 
 
-function Base.next(it::IntersectionIterator{F, K, V1, B1, V2, B2},
-                   state) where {F, K, V1, B1, V2, B2}
+@inline function Base.next(it::IntersectionIterator{F, K, V1, B1, V2, B2},
+                           state) where {F, K, V1, B1, V2, B2}
     if it.successive
         u = get(it.u)
         w = get(it.w)
