@@ -123,13 +123,13 @@ function Base.start(it::IntervalKeyIterator{K, V, B}) where {K, V, B}
         node = node.children[1]
     end
 
-    return IntervalBTreeIteratorState(Nullable(node), 1)
+    return IntervalBTreeIteratorState(node, 1)
 end
 
 
 function Base.next(t::IntervalKeyIterator{K, V, B},
                    state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    leaf = get(state.leaf)
+    leaf = state.leaf
     key = Interval{K}(first(leaf.entries[state.i]),
                       last(leaf.entries[state.i]))
     if state.i < length(leaf)
@@ -143,7 +143,7 @@ end
 
 function Base.done(t::IntervalKeyIterator{K, V, B},
                    state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return isnull(state.leaf) || isempty(get(state.leaf))
+    return (state.leaf === nothing) || isempty(state.leaf)
 end
 
 
@@ -167,13 +167,13 @@ function Base.start(it::IntervalValueIterator{K, V, B}) where {K, V, B}
         node = node.children[1]
     end
 
-    return IntervalBTreeIteratorState(Nullable(node), 1)
+    return IntervalBTreeIteratorState(node, 1)
 end
 
 
 function Base.next(t::IntervalValueIterator{K, V, B},
                    state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    leaf = get(state.leaf)
+    leaf = state.leaf
     value = leaf.entries[state.i].value
     if state.i < length(leaf)
         state = IntervalBTreeIteratorState{K, V, B}(leaf, state.i + 1)
@@ -186,5 +186,5 @@ end
 
 function Base.done(t::IntervalValueIterator{K, V, B},
                    state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return isnull(state.leaf) || isempty(get(state.leaf))
+    return (state.leaf === nothing) || isempty(state.leaf)
 end
