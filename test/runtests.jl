@@ -185,7 +185,7 @@ end
         end
         @test all(results)
 
-        @test_broken all(Bool[(get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1))
+        @test all(Bool[(get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1))
                        for interval in intervals])
         @test all(Bool[get(t, interval, -1) != -1 for interval in intervals])
     end
