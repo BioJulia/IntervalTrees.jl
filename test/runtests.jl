@@ -348,9 +348,9 @@ end
 
     @test (length(collect(t)) == length(t) == n + 3)
     @test issorted(collect(keys(t)))
-    @test validkeys(t)
-    @test validparents(t)
-    @test validsiblings(t)
+    @test validkeys(t) == true
+    @test validparents(t) == true
+    @test validsiblings(t) == true
 end
 
 
