@@ -654,7 +654,7 @@ function _push!(t::IntervalBTree{K, V, B},
                 end
             else
                 p.maxend = max(p.maxend, last(entry))
-                p.maxends[findfirst(p.children, child)] = child.maxend
+                p.maxends[findfirst(isequal(child), p.children)] = child.maxend
             end
             child = p
             parent = p.parent
@@ -678,7 +678,7 @@ function _push!(t::IntervalBTree{K, V, B},
         while parent !== nothing
             p = parent
             p.maxend = max(p.maxend, last(entry))
-            p.maxends[findfirst(p.children, child)] = child.maxend
+            p.maxends[findfirst(isequal(child), p.children)] = child.maxend
             parent = p.parent
             child = p
         end
