@@ -40,9 +40,9 @@ function _getindex(t::LeafNode{K, V, B}, key::AbstractInterval{K}) where {K, V, 
     i = findidx(t, key)
     if 1 <= i <= length(t) && first(t.entries[i]) == first(key) &&
         last(t.entries[i]) == last(key)
-        return t.values[i]
+        return t.entries[i]
     else
-        error(KeyError((key.a, key.b)))
+        error(KeyError((key.first, key.last)))
     end
 end
 

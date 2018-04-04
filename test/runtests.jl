@@ -79,7 +79,9 @@ function validkeys(node::IntervalTrees.LeafNode, minint, maxint)
             return false
         end
 
-        if !(minint <= entry <= maxint) || last(entry) > node.maxend
+        interval = IntervalTrees.Interval(first(entry), last(entry))
+
+        if !(minint <= interval <= maxint) || last(interval) > node.maxend
             return false
         end
     end
@@ -348,9 +350,9 @@ end
 
     @test (length(collect(t)) == length(t) == n + 3)
     @test issorted(collect(keys(t)))
-    @test validkeys(t) == true
-    @test validparents(t) == true
-    @test validsiblings(t) == true
+    @test validkeys(t)
+    @test validparents(t)
+    @test validsiblings(t)
 end
 
 

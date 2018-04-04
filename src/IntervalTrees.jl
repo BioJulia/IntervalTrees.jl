@@ -26,11 +26,9 @@ function basic_isless(u::AbstractInterval, v::AbstractInterval)
     return first(u) < first(v) || (first(u) == first(v) && last(u) < last(v))
 end
 
-
 function Base.isless(u::AbstractInterval, v::AbstractInterval)
     return basic_isless(u, v)
 end
-
 
 """
 A basic interval.
@@ -43,7 +41,6 @@ Base.convert(::Type{Interval{T}}, range::Range{T}) where T = Interval(first(rang
 Interval(range::Range{T}) where T = convert(Interval{T}, range)
 Base.first(i::Interval{T}) where T = i.first
 Base.last(i::Interval{T}) where T = i.last
-
 
 """
 An interval with some associated data.
@@ -597,7 +594,7 @@ function _push!(t::IntervalBTree{K, V, B},
                 node::InternalNode{K, V, B},
                 entry::V, unique_key::Bool, update::Bool) where {K, V, B}
     i = findidx(node, entry) # key index
-    j = i <= length(node) - 1 && entry >= node.keys[i] ? i + 1 : i # child index
+    j = i <= length(node) - 1 && entry < node.keys[i] ? i : i + 1 # child index
     return _push!(t, node.children[j], entry, unique_key, update)
 end
 
@@ -640,7 +637,7 @@ function _push!(t::IntervalBTree{K, V, B},
             p = parent
             if hassplit
                 i = findidx(p, entry) # key index
-                j = i <= length(p) - 1 && entry >= p.keys[i] ? i + 1 : i # child index
+                j = i <= length(p) - 1 && entry < p.keys[i] ? i : i + 1 # child index
                 p.maxends[j] = p.children[j].maxend
                 insert!(p.children, j + 1, rightnode)
                 insert!(p.maxends, j + 1, p.children[j+1].maxend)
@@ -1013,7 +1010,7 @@ end
 
 function Base.haskey(t::InternalNode{K, V, B}, key::AbstractInterval{K}) where {K, V, B}
     i = findidx(t, key)
-    if i <= length(t) - 1 && key >= t.keys[i]
+    if i <= length(t) - 1 && !(key < t.keys[i])
         return haskey(t.children[i+1], key)
     else
         return haskey(t.children[i], key)
@@ -1048,7 +1045,7 @@ end
 
 function Base.findfirst(t::InternalNode{K, V, B}, key::AbstractInterval{K}, f) where {K, V, B}
     i = findidx(t, key)
-    if i <= length(t) - 1 && key >= t.keys[i]
+    if i <= length(t) - 1 && !(key < t.keys[i])
         return findfirst(t.children[i+1], key, f)
     else
         return findfirst(t.children[i], key, f)
