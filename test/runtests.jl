@@ -1,11 +1,12 @@
 #!/usr/bin/env julia
 
 using Compat
-using Test
+
+using Base.Test
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
 
-using Random
+using Compat.Random
 
 
 # Convert

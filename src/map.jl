@@ -1,4 +1,5 @@
 # IntervalTree map operations
+using Compat
 
 const IntervalMap{K, V} = IntervalTree{K, IntervalValue{K, V}}
 
@@ -108,7 +109,7 @@ struct IntervalKeyIterator{K, V, B}
 end
 
 Base.eltype(::Type{IntervalKeyIterator{K,V,B}}) where {K,V,B} = Interval{K}
-Base.IteratorSize(::Type{IntervalKeyIterator{K,V,B}}) where {K,V,B} = Base.SizeUnknown()
+Compat.IteratorSize(::Type{IntervalKeyIterator{K,V,B}}) where {K,V,B} = Base.SizeUnknown()
 
 
 function Base.keys(t::IntervalBTree)
@@ -152,7 +153,7 @@ struct IntervalValueIterator{K, V <: IntervalValue, B}
 end
 
 Base.eltype(::Type{IntervalValueIterator{K,V,B}}) where {K,V,B} = valtype(V)
-Base.IteratorSize(::Type{IntervalValueIterator{K,V,B}}) where {K,V,B} = Base.SizeUnknown()
+Compat.IteratorSize(::Type{IntervalValueIterator{K,V,B}}) where {K,V,B} = Base.SizeUnknown()
 
 
 function Base.values(t::IntervalBTree{K, V, B}) where {K, V<:IntervalValue, B}
