@@ -1,9 +1,12 @@
 #!/usr/bin/env julia
 
-using Base.Test
-
+using Compat
+using Test
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
+
+using Random
+
 
 # Convert
 @testset "Convert and constructors" begin
@@ -119,7 +122,7 @@ function validsiblings(t::IntervalTrees.IntervalBTree)
     # Do an in-order traversal, pushing nodes onto a stack indexed by
     # depth.
     tdepth = depth(t)
-    nodestacks = [Vector{IntervalTrees.Node}(0) for _ in 1:tdepth]
+    nodestacks = [Vector{IntervalTrees.Node}(undef, 0) for _ in 1:tdepth]
 
     function _visit(node::IntervalTrees.InternalNode, k)
         push!(nodestacks[k], node)
@@ -168,7 +171,7 @@ end
     @test !haskey(t, (1,2))
 
     n = 10000
-    maxend = 1000000
+    global maxend = 1000000
     intervals = [randinterval(1, maxend) for i in 1:n]
 
     @testset "true positives" begin
@@ -218,7 +221,7 @@ end
 
     @testset "from" begin
         n = 100
-        maxend = 1000000
+        global maxend = 1000000
         intervals = [randinterval(1, maxend) for _ in 1:n]
         startpos = 50000
         expected_count = 0
@@ -360,7 +363,7 @@ end
     n = 10000
     t1 = IntervalTrees.IntervalMap{Int, Int}()
     t2 = IntervalTrees.IntervalMap{Int, Int}()
-    maxend = 1000000
+    global maxend = 1000000
     for k in 1:n
         # generate small-ish intervals so we avoid the worst case
         # of O(n^2) intersecting pairs and this test runs quickly

@@ -3,12 +3,14 @@
 # We would like for those to behave as though they are resized without actually
 # doing any reallocation.
 
+using Compat
+
 mutable struct Slice{T, N} <: AbstractVector{T}
     data::Vector{T}
     n::Int # Number of stored elements
 
     function Slice{T,N}() where {T,N}
-        return new{T,N}(Vector{T}(N), 0)
+        return new{T,N}(Vector{T}(undef, N), 0)
     end
 end
 
@@ -20,7 +22,6 @@ end
 function Base.size(s::Slice)
     return (s.n,)
 end
-
 
 function Base.getindex(s::Slice{T, N}, i::Integer) where {T, N}
     if 1 <= i <= s.n

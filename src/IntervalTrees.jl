@@ -13,6 +13,8 @@ export
     from,
     value
 
+using Compat
+
 include("slice.jl")
 
 """
@@ -37,8 +39,9 @@ struct Interval{T} <: AbstractInterval{T}
     first::T
     last::T
 end
-Base.convert(::Type{Interval{T}}, range::Range{T}) where T = Interval(first(range), last(range))
-Interval(range::Range{T}) where T = convert(Interval{T}, range)
+Base.convert(::Type{Interval{T}}, range::AbstractRange{T}) where T =
+    Interval(first(range), last(range))
+Interval(range::AbstractRange{T}) where T = convert(Interval{T}, range)
 Base.first(i::Interval{T}) where T = i.first
 Base.last(i::Interval{T}) where T = i.last
 
@@ -50,7 +53,8 @@ struct IntervalValue{K, V} <: AbstractInterval{K}
     last::K
     value::V
 end
-IntervalValue(range::Range{K}, value::V) where {K, V} = IntervalValue(first(range), last(range), value)
+IntervalValue(range::AbstractRange{K}, value::V) where {K, V} =
+    IntervalValue(first(range), last(range), value)
 
 valtype(::Type{IntervalValue{K,V}}) where {K, V} = V
 
@@ -95,11 +99,11 @@ mutable struct InternalNode{K, V, B} <: Node{K, V, B}
 
     children::Slice{Node{K, V, B}, B}
 
-    parent::Union{Void, InternalNode{K, V, B}}
+    parent::Union{Nothing, InternalNode{K, V, B}}
 
     # Sibling/cousin pointers.
-    left::Union{Void, InternalNode{K, V, B}}
-    right::Union{Void, InternalNode{K, V, B}}
+    left::Union{Nothing, InternalNode{K, V, B}}
+    right::Union{Nothing, InternalNode{K, V, B}}
 
     function InternalNode{K,V,B}() where {K,V,B}
         return new{K,V,B}(
@@ -124,15 +128,15 @@ mutable struct LeafNode{K, V, B} <: Node{K, V, B}
     # maximum interval end-point in this leaf node.
     maxend::K
 
-    parent::Union{Void, InternalNode{K, V, B}}
+    parent::Union{Nothing, InternalNode{K, V, B}}
 
     # Sibling/cousin pointers.
-    left::Union{Void, LeafNode{K, V, B}}
-    right::Union{Void, LeafNode{K, V, B}}
+    left::Union{Nothing, LeafNode{K, V, B}}
+    right::Union{Nothing, LeafNode{K, V, B}}
 
     function LeafNode{K,V,B}() where {K,V,B}
         return new{K,V,B}(
-            Array{V}(B), Array{Interval{K}}(B), 0,
+            Array{V}(undef, B), Array{Interval{K}}(undef, B), 0,
             zero(K),
             nothing,
             nothing,
@@ -230,8 +234,8 @@ mutable struct IntervalBTree{K, V, B}
         numleaves = cld(n, B - 2)
         leaves = [LeafNode{K, V, B}() for _ in 1:numleaves]
 
-        maxends = Vector{K}(numleaves)
-        minkeys = Vector{Interval{K}}(numleaves)
+        maxends = Vector{K}(undef, numleaves)
+        minkeys = Vector{Interval{K}}(undef, numleaves)
 
         # divy up the keys and values among the leaves
         keys_per_leaf = cld(n, numleaves)
@@ -363,7 +367,7 @@ end
 
 
 mutable struct IntervalBTreeIteratorState{K, V, B}
-    leaf::Union{Void, LeafNode{K, V, B}}
+    leaf::Union{Nothing, LeafNode{K, V, B}}
     i::Int
 end
 
@@ -407,7 +411,7 @@ struct IntervalFromIterator{K, V, B}
 end
 
 Base.eltype(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = V
-Base.iteratorsize(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = Base.SizeUnknown()
 
 function from(t::IntervalBTree{K, V, B}, p) where {K, V, B}
     return IntervalFromIterator{K, V, B}(t, convert(K, p))
@@ -453,8 +457,8 @@ function split!(left::LeafNode{K, V, B}) where {K, V, B}
 
     m = length(left)
     resize!(right, m - div(m, 2))
-    copy!(right.entries, 1, left.entries, div(m, 2) + 1, length(right))
-    copy!(right.keys, 1, left.keys, div(m, 2) + 1, length(right))
+    copyto!(right.entries, 1, left.entries, div(m, 2) + 1, length(right))
+    copyto!(right.keys, 1, left.keys, div(m, 2) + 1, length(right))
     resize!(left, div(m, 2))
 
     left.maxend = last(left.keys[1])
@@ -488,9 +492,9 @@ function split!(left::InternalNode{K, V, B}) where {K, V, B}
     resize!(right.maxends, m - div(m, 2))
     resize!(right.keys, m - div(m, 2) - 1)
 
-    copy!(right.children, 1, left.children, div(m, 2)+1, length(right.children))
-    copy!(right.maxends, 1, left.maxends, div(m, 2)+1, length(right.maxends))
-    copy!(right.keys, 1, left.keys, div(m, 2)+1, length(right.keys))
+    copyto!(right.children, 1, left.children, div(m, 2)+1, length(right.children))
+    copyto!(right.maxends, 1, left.maxends, div(m, 2)+1, length(right.maxends))
+    copyto!(right.keys, 1, left.keys, div(m, 2)+1, length(right.keys))
 
     resize!(left.children, div(m, 2))
     resize!(left.maxends, div(m, 2))
@@ -654,7 +658,11 @@ function _push!(t::IntervalBTree{K, V, B},
                 end
             else
                 p.maxend = max(p.maxend, last(entry))
-                p.maxends[findfirst(isequal(child), p.children)] = child.maxend
+                ifind = @compat findfirst(isequal(child), p.children)
+                if ifind == nothing
+                    ifind = 0
+                end
+                p.maxends[ifind] = child.maxend
             end
             child = p
             parent = p.parent
@@ -678,7 +686,11 @@ function _push!(t::IntervalBTree{K, V, B},
         while parent !== nothing
             p = parent
             p.maxend = max(p.maxend, last(entry))
-            p.maxends[findfirst(isequal(child), p.children)] = child.maxend
+            ifind = @compat findfirst(isequal(child), p.children)
+            if ifind == nothing
+                ifind = 0
+            end
+            p.maxends[ifind] = child.maxend
             parent = p.parent
             child = p
         end
@@ -955,8 +967,8 @@ function merge!(left::LeafNode{K, V, B}, right::LeafNode{K, V, B}) where {K, V, 
     leftlen, rightlen = length(left), length(right)
     @assert leftlen + rightlen <= B
     resize!(left, leftlen + rightlen)
-    copy!(left.entries, leftlen+1, right.entries, 1, length(right))
-    copy!(left.keys, leftlen+1, right.keys, 1, length(right))
+    copyto!(left.entries, leftlen+1, right.entries, 1, length(right))
+    copyto!(left.keys, leftlen+1, right.keys, 1, length(right))
     left.maxend = nodemaxend(left)
     return
 end
@@ -969,13 +981,13 @@ function merge!(left::InternalNode{K, V, B}, right::InternalNode{K, V, B}) where
     resize!(left.keys, leftlen + rightlen - 1)
     resize!(left.children, leftlen + rightlen)
     resize!(left.maxends, leftlen + rightlen)
-    copy!(left.children, leftlen+1, right.children, 1, length(right.children))
-    copy!(left.maxends, leftlen+1, right.maxends, 1, length(right.maxends))
+    copyto!(left.children, leftlen+1, right.children, 1, length(right.children))
+    copyto!(left.maxends, leftlen+1, right.maxends, 1, length(right.maxends))
     for i in leftlen+1:length(left.children)
         left.children[i].parent = left
     end
     left.keys[leftlen] = minkey(left.children[leftlen+1])
-    copy!(left.keys, leftlen+1, right.keys, 1, length(right.keys))
+    copyto!(left.keys, leftlen+1, right.keys, 1, length(right.keys))
     left.maxend = nodemaxend(left)
     return
 end
@@ -1149,7 +1161,7 @@ end
 # searched.
 function firstintersection!(t::IntervalBTree{K, V, B},
                             query::AbstractInterval{K},
-                            lower::Union{Void, V},
+                            lower::Union{Nothing, V},
                             out::Intersection{K, V, B},
                             filter::F) where {F, K, V, B}
     return firstintersection!(t.root, query, lower, out, filter)
@@ -1158,7 +1170,7 @@ end
 
 function firstintersection!(t::InternalNode{K, V, B},
                             query::AbstractInterval{K},
-                            lower::Union{Void, V},
+                            lower::Union{Nothing, V},
                             out::Intersection{K, V, B},
                             filter::F) where {F, K, V, B}
     if isempty(t) || t.maxend < first(query)
@@ -1192,7 +1204,7 @@ end
 
 function firstintersection!(t::LeafNode{K, V, B},
                             query::AbstractInterval{K},
-                            lower::Union{Void, V},
+                            lower::Union{Nothing, V},
                             out::Intersection{K, V, B},
                             filter::F) where {F, K, V, B}
     if isempty(t) || t.maxend < first(query)
@@ -1223,7 +1235,7 @@ end
 
 function firstintersection(t::InternalNode{K, V, B},
                            query::Interval{K},
-                           lower::Union{Void, Interval{K}}) where {K, V, B}
+                           lower::Union{Nothing, Interval{K}}) where {K, V, B}
     if isempty(t) || t.maxend < first(query)
         return (nothing, 1)
     end
@@ -1248,7 +1260,7 @@ end
 
 
 function firstintersection(t::LeafNode{K, V, B}, query::Interval{K},
-                           lower::Union{Void, Interval{K}}) where {K, V, B}
+                           lower::Union{Nothing, Interval{K}}) where {K, V, B}
 
     if isempty(t) || t.maxend < first(query)
         return (nothing, 1)
@@ -1363,7 +1375,7 @@ mutable struct IntervalIntersectionIterator{F, K, V, B}
 end
 
 Base.eltype(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = V
-Base.iteratorsize(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = Base.SizeUnknown()
 
 # Intersect an interval tree t with a single interval, returning an iterator
 # over the intersecting (key, value) pairs in t.
@@ -1392,7 +1404,7 @@ function Base.start(it::IntervalIntersectionIterator{F, K, V, B}) where {F, K, V
 end
 
 
-function Base.next(it::IntervalIntersectionIterator{F, K, V, B}, ::Void) where {F, K, V, B}
+function Base.next(it::IntervalIntersectionIterator{F, K, V, B}, ::Nothing) where {F, K, V, B}
     intersection = it.intersection
     entry = intersection.node.entries[intersection.index]
     nextintersection!(intersection.node, intersection.index,
@@ -1401,7 +1413,7 @@ function Base.next(it::IntervalIntersectionIterator{F, K, V, B}, ::Void) where {
 end
 
 
-function Base.done(it::IntervalIntersectionIterator{F, K, V, B}, ::Void) where {F, K, V, B}
+function Base.done(it::IntervalIntersectionIterator{F, K, V, B}, ::Nothing) where {F, K, V, B}
     return it.intersection.index == 0
 end
 
@@ -1419,9 +1431,9 @@ mutable struct IntersectionIterator{F, K, V1, B1, V2, B2}
     isdone::Bool
 
     # intersection state
-    u::Union{Void, LeafNode{K, V1, B1}}
-    v::Union{Void, LeafNode{K, V2, B2}}
-    w::Union{Void, LeafNode{K, V2, B2}}
+    u::Union{Nothing, LeafNode{K, V1, B1}}
+    v::Union{Nothing, LeafNode{K, V2, B2}}
+    w::Union{Nothing, LeafNode{K, V2, B2}}
     i::Int
     j::Int
     k::Int
@@ -1432,7 +1444,7 @@ mutable struct IntersectionIterator{F, K, V1, B1, V2, B2}
 end
 
 Base.eltype(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Tuple{V1,V2}
-Base.iteratorsize(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Base.SizeUnknown()
 
 function Base.start(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
     it.isdone = true
