@@ -116,9 +116,7 @@ validparents(node::IntervalTrees.LeafNode) = true
 
 # Verify that sibling/cousin pointers are correct
 function validsiblings(t::IntervalTrees.IntervalBTree)
-    if !(t.root.left === nothing) || !(t.root.right === nothing)
-        return false
-    end
+    t.root.left === t.root.right === nothing || return false
 
     # Do an in-order traversal, pushing nodes onto a stack indexed by
     # depth.
