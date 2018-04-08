@@ -38,6 +38,7 @@ function readgff3(filepath::String, chrom::String)
     end
 end
 
+isdir("data") || mkdir("data")
 cd("data")
 filename="Danio_rerio.GRCz11.92.gff3.gz"
 isfile(filename)||

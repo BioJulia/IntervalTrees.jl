@@ -14,6 +14,7 @@ export
     value
 
 using Compat
+using Compat: notnothing
 
 include("slice.jl")
 
@@ -451,6 +452,7 @@ function split!(left::LeafNode{K, V, B}) where {K, V, B}
     right.left = left
     left.right = right
     if right.right !== nothing
+        right.right = notnothing(right.right)
         right.right.left = right
     end
     right.parent = left.parent
@@ -482,6 +484,7 @@ function split!(left::InternalNode{K, V, B}) where {K, V, B}
     right.left = left
     left.right = right
     if right.right !== nothing
+        right.right = notnothing(right.right)
         right.right.left = right
     end
     right.parent = left.parent
@@ -558,7 +561,7 @@ end
 # Find the root node
 function root(t::Node)
     while t.parent !== nothing
-        t = t.parent
+        t = notnothing(t.parent)
     end
     return t
 end
@@ -638,7 +641,7 @@ function _push!(t::IntervalBTree{K, V, B},
         rightnode = rightleaf
         hassplit = true
         while parent !== nothing
-            p = parent
+            p = notnothing(parent)
             if hassplit
                 i = findidx(p, entry) # key index
                 j = i <= length(p) - 1 && entry < p.keys[i] ? i : i + 1 # child index
@@ -658,10 +661,7 @@ function _push!(t::IntervalBTree{K, V, B},
                 end
             else
                 p.maxend = max(p.maxend, last(entry))
-                ifind = @compat findfirst(isequal(child), p.children)
-                if ifind == nothing
-                    ifind = 0
-                end
+                ifind = coalesce(@compat findfirst(isequal(child), p.children), 0)
                 p.maxends[ifind] = child.maxend
             end
             child = p
@@ -684,12 +684,9 @@ function _push!(t::IntervalBTree{K, V, B},
         parent = node.parent
         child = node
         while parent !== nothing
-            p = parent
+            p = notnothing(parent)
             p.maxend = max(p.maxend, last(entry))
-            ifind = @compat findfirst(isequal(child), p.children)
-            if ifind == nothing
-                ifind = 0
-            end
+            ifind = coalesce(@compat findfirst(isequal(child), p.children), 0)
             p.maxends[ifind] = child.maxend
             parent = p.parent
             child = p
@@ -814,7 +811,7 @@ function _deletefirst!(t::InternalNode{K, V, B}, key::Interval{K}) where {K, V, 
 
         # borrow right
         if t.right !== nothing
-            right = t.right
+            right = notnothing(t.right)
             if sameparent(right, t) && length(right) > minsize
                 splice!(right.keys, 1)
                 push!(t.children, splice!(right.children, 1))
@@ -830,7 +827,7 @@ function _deletefirst!(t::InternalNode{K, V, B}, key::Interval{K}) where {K, V, 
 
         # borrow left
         if t.left !== nothing
-            left = t.left
+            left = notnothing(t.left)
             if sameparent(left, t) && length(left) > minsize
                 insert!(t.children, 1, pop!(left.children))
                 insert!(t.maxends, 1, pop!(left.maxends))
@@ -846,11 +843,12 @@ function _deletefirst!(t::InternalNode{K, V, B}, key::Interval{K}) where {K, V, 
 
         # merge with left
         if t.left !== nothing
-            left = t.left
+            left = notnothing(t.left)
             if sameparent(left, t)
                 merge!(left, t)
                 left.right = t.right
                 if t.right !== nothing
+                    t.right = notnothing(t.right)
                     t.right.left = left
                 end
 
@@ -860,10 +858,11 @@ function _deletefirst!(t::InternalNode{K, V, B}, key::Interval{K}) where {K, V, 
 
         # merge with right
         if t.right !== nothing
-            right = t.right
+            right = notnothing(t.right)
             if sameparent(right, t)
                 merge!(t, right)
                 if right.right !== nothing
+                    right.right = notnothing(right.right)
                     right.right.left = t
                 end
                 t.right = right.right
@@ -909,7 +908,7 @@ function _deletefirst!(t::LeafNode{K, V, B}, key::Interval{K}) where {K, V, B}
 
     # borrow right
     if t.right !== nothing
-        right = t.right
+        right = notnothing(t.right)
         if sameparent(right, t) && length(right) > minsize
             push!(t, splice!(right, 1))
             t.maxend = max(t.maxend, last(t.keys[t.count]))
@@ -921,7 +920,7 @@ function _deletefirst!(t::LeafNode{K, V, B}, key::Interval{K}) where {K, V, B}
 
     # borrow left
     if t.left !== nothing
-        left = t.left
+        left = notnothing(t.left)
         if sameparent(left, t) && length(left) > minsize
             insert!(t, 1, pop!(left))
             t.maxend = max(t.maxend, last(t.keys[1]))
@@ -933,11 +932,12 @@ function _deletefirst!(t::LeafNode{K, V, B}, key::Interval{K}) where {K, V, B}
 
     # merge with left
     if t.left !== nothing
-        left = t.left
+        left = notnothing(t.left)
         if sameparent(left, t)
             merge!(left, t)
             left.right = t.right
             if t.right !== nothing
+                t.right = notnothing(t.right)
                 t.right.left = left
             end
             return DeleteResult(true, KEYFATE_DELETE)
@@ -946,10 +946,11 @@ function _deletefirst!(t::LeafNode{K, V, B}, key::Interval{K}) where {K, V, B}
 
     # merge with right
     if t.right !== nothing
-        right = t.right
+        right = notnothing(t.right)
         if sameparent(right, t)
             merge!(t, right)
             if right.right !== nothing
+                right.right = notnothing(right.right)
                 right.right.left = t
             end
             t.right = right.right
@@ -1046,7 +1047,7 @@ function Base.findfirst(t::LeafNode{K, V, B}, key::AbstractInterval{K}, f) where
         end
         i += 1
         if i > length(t) && t.right !== nothing
-            t = t.right
+            t = notnothing(t.right)
             i = 1
         end
     end
@@ -1180,7 +1181,7 @@ function firstintersection!(t::InternalNode{K, V, B},
 
     (query_first, query_last) = (first(query), last(query))
 
-    i = lower === nothing ? 1 : searchsortedfirst(t.keys, lower)
+    i = lower === nothing ? 1 : searchsortedfirst(t.keys, notnothing(lower))
 
     while i <= length(t.children)
         if i > 1 && unsafe_getindex(t.keys, i-1).first > query_last
@@ -1214,7 +1215,7 @@ function firstintersection!(t::LeafNode{K, V, B},
 
     # TODO: search keys
     i = lower === nothing ? 1 :
-        searchsortedfirst(t.entries, lower, 1, Int(t.count),
+        searchsortedfirst(t.entries, notnothing(lower), 1, Int(t.count),
                              Base.ord(basic_isless, identity, false))
 
     while i <= length(t)
@@ -1240,7 +1241,7 @@ function firstintersection(t::InternalNode{K, V, B},
         return (nothing, 1)
     end
 
-    i = lower === nothing ? 1 : searchsortedfirst(t.keys, lower)
+    i = lower === nothing ? 1 : searchsortedfirst(t.keys, notnothing(lower))
 
     while i <= length(t.children)
         if i > 1 && unsafe_getindex(t.keys, i-1).first > last(query)
@@ -1250,7 +1251,7 @@ function firstintersection(t::InternalNode{K, V, B},
         if t.maxends[i] >= first(query)
             w, k = firstintersection(unsafe_getindex(t.children, i), query,
                                      lower)
-            w !== nothing && return w, k
+            w !== nothing && return notnothing(w), k
         end
         i += 1
     end
@@ -1266,11 +1267,11 @@ function firstintersection(t::LeafNode{K, V, B}, query::Interval{K},
         return (nothing, 1)
     end
 
-    i = lower === nothing ? 1 : searchsortedfirst(t.keys, lower)
+    i = lower === nothing ? 1 : searchsortedfirst(t.keys, notnothing(lower))
 
     while i <= length(t)
         if intersects(t.keys[i], query) &&
-           (lower === nothing || !basic_isless(t.keys[i], lower))
+           (lower === nothing || !basic_isless(t.keys[i], notnothing(lower)))
             return (t, i)
         elseif last(query) < first(t.keys[i])
             break
@@ -1339,7 +1340,7 @@ function nextintersection!(t::LeafNode{K, V, B}, i::Integer,
 
         t.right === nothing && break
 
-        t = t.right
+        t = notnothing(t.right)
 
         if minstart(t) > last(query)
             break
@@ -1489,16 +1490,16 @@ function iterative_nextintersection!(
 
     while true
         u === nothing && return
-        unode = u
+        unode = notnothing(u)
         ukey = unode.keys[i]
 
         v === nothing && return
-        vnode = v
+        vnode = notnothing(v)
         vkey = vnode.keys[j]
 
         # find next intersection w
         while w !== nothing
-            wnode = w
+            wnode = notnothing(w)
             wkey = wnode.keys[k]
 
             if first(wkey) <= last(ukey)
@@ -1523,10 +1524,10 @@ function iterative_nextintersection!(
         u === nothing && break
 
         # find new v corresponding to new u
-        unode = u
+        unode = notnothing(u)
         ukey = unode.keys[i]
         while v !== nothing
-            vnode = v
+            vnode = notnothing(v)
             vkey = vnode.keys[j]
 
             if last(vkey) < first(ukey)
@@ -1558,12 +1559,12 @@ function successive_nextintersection!(
 
     while true
         u === nothing && return
-        unode = u
+        unode = notnothing(u)
         ukey = unode.keys[i]
 
         # find next intersection w
         while w !== nothing
-            wnode = w
+            wnode = notnothing(w)
             wkey = wnode.keys[k]
 
             if first(wkey) <= last(ukey)
@@ -1584,7 +1585,7 @@ function successive_nextintersection!(
                     # to avoid linear search behavior in the presence of
                     # extremely long intervals.
                     if w !== nothing && w.maxend < first(ukey)
-                        wnode = w
+                        wnode = notnothing(w)
                         w, k = firstintersection(it.t2.root, ukey,
                                                  wnode.keys[wnode.count])
                     end
@@ -1605,7 +1606,7 @@ function successive_nextintersection!(
         u === nothing && break
 
         # find u's first intersection
-        unode = u
+        unode = notnothing(u)
         ukey = unode.keys[i]
 
         w, k = firstintersection(it.t2.root, ukey, nothing)

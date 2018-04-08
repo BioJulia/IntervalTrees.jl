@@ -144,7 +144,7 @@ end
 
 function Base.done(t::IntervalKeyIterator{K, V, B},
                    state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return (state.leaf === nothing) || isempty(state.leaf)
+    return (state.leaf === nothing) || isempty(notnothing(state.leaf))
 end
 
 
@@ -187,5 +187,5 @@ end
 
 function Base.done(t::IntervalValueIterator{K, V, B},
                    state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return (state.leaf === nothing) || isempty(state.leaf)
+    return (state.leaf === nothing) || isempty(notnothing(state.leaf))
 end
