@@ -661,7 +661,10 @@ function _push!(t::IntervalBTree{K, V, B},
                 end
             else
                 p.maxend = max(p.maxend, last(entry))
-                ifind = coalesce(@compat findfirst(isequal(child), p.children), 0)
+                ifind = @compat findfirst(isequal(child), p.children)
+                if ifind === nothing
+                    ifind = 0
+                end
                 p.maxends[ifind] = child.maxend
             end
             child = p
@@ -686,7 +689,10 @@ function _push!(t::IntervalBTree{K, V, B},
         while parent !== nothing
             p = notnothing(parent)
             p.maxend = max(p.maxend, last(entry))
-            ifind = coalesce(@compat findfirst(isequal(child), p.children), 0)
+            ifind = @compat findfirst(isequal(child), p.children)
+            if ifind === nothing
+                ifind = 0
+            end
             p.maxends[ifind] = child.maxend
             parent = p.parent
             child = p
