@@ -1,9 +1,13 @@
 #!/usr/bin/env julia
 
-using Base.Test
+using Compat
 
+using Base.Test
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
+
+using Compat.Random
+
 
 # Convert
 @testset "Convert and constructors" begin
@@ -30,7 +34,7 @@ end
 
 # Generating random intervals
 srand(12345)
-const maxend = round(Int, 1e9)
+global maxend = round(Int, 1e9)
 
 function randinterval(minstart=1, maxend=maxend)
     a = rand(minstart:maxend)
@@ -79,7 +83,9 @@ function validkeys(node::IntervalTrees.LeafNode, minint, maxint)
             return false
         end
 
-        if !(minint <= entry <= maxint) || last(entry) > node.maxend
+        interval = IntervalTrees.Interval(first(entry), last(entry))
+
+        if !(minint <= interval <= maxint) || last(interval) > node.maxend
             return false
         end
     end
@@ -89,7 +95,7 @@ end
 
 # Verify that parent pointers are correct
 function validparents(t::IntervalTrees.IntervalBTree)
-    if !isnull(t.root.parent)
+    if (t.root.parent !== nothing)
         return false
     end
 
@@ -99,28 +105,23 @@ end
 
 function validparents(node::IntervalTrees.InternalNode)
     for child in node.children
-        if !validparents(child) || get(child.parent) != node
+        if !validparents(child) || child.parent != node
             return false
         end
     end
     return true
 end
 
-function validparents(node::IntervalTrees.LeafNode)
-    return true
-end
-
+validparents(node::IntervalTrees.LeafNode) = true
 
 # Verify that sibling/cousin pointers are correct
 function validsiblings(t::IntervalTrees.IntervalBTree)
-    if !isnull(t.root.left) || !isnull(t.root.right)
-        return false
-    end
+    t.root.left === t.root.right === nothing || return false
 
     # Do an in-order traversal, pushing nodes onto a stack indexed by
     # depth.
     tdepth = depth(t)
-    nodestacks = [Vector{IntervalTrees.Node}(0) for _ in 1:tdepth]
+    nodestacks = [Vector{IntervalTrees.Node}(undef, 0) for _ in 1:tdepth]
 
     function _visit(node::IntervalTrees.InternalNode, k)
         push!(nodestacks[k], node)
@@ -141,20 +142,20 @@ function validsiblings(t::IntervalTrees.IntervalBTree)
             continue
         end
 
-        if !isnull(stack[1].left) || !isnull(stack[end].right)
+        if !(stack[1].left === nothing) || !(stack[end].right === nothing)
             return false
         end
 
         if length(stack) > 1
-            if isnull(stack[1].right) || get(stack[1].right) != stack[2] ||
-               isnull(stack[end].left) || get(stack[end].left) != stack[end-1]
+            if (stack[1].right === nothing)  || stack[1].right != stack[2] ||
+               (stack[end].left === nothing) || stack[end].left != stack[end-1]
                 return false
             end
         end
 
         for i in 2:length(stack)-1
-            if isnull(stack[i].left) || get(stack[i].left) != stack[i-1] ||
-               isnull(stack[i].right) || get(stack[i].right) != stack[i+1]
+            if (stack[i].left === nothing)  || stack[i].left != stack[i-1] ||
+               (stack[i].right === nothing) || stack[i].right != stack[i+1]
                 return false
             end
         end
@@ -169,7 +170,7 @@ end
     @test !haskey(t, (1,2))
 
     n = 10000
-    maxend = 1000000
+    global maxend = 1000000
     intervals = [randinterval(1, maxend) for i in 1:n]
 
     @testset "true positives" begin
@@ -179,16 +180,16 @@ end
 
         shuffle!(intervals)
         @test all(Bool[haskey(t, interval) for interval in intervals])
-        @test all(Bool[!isnull(findfirst(t, interval)) for interval in intervals])
+        @test all(Bool[findfirst(t, interval) !== nothing for interval in intervals])
 
         results = Bool[]
         for interval in intervals
-            x = get(findfirst(t, interval))
+            x = findfirst(t, interval)
             push!(results, x.first == interval[1] && x.last == interval[2])
         end
         @test all(results)
 
-        @test all(Bool[get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1)
+        @test all(Bool[(get!(t, interval, -1) != IntervalValue{Int, Int}(interval[1], interval[2], -1))
                        for interval in intervals])
         @test all(Bool[get(t, interval, -1) != -1 for interval in intervals])
     end
@@ -197,11 +198,11 @@ end
         @test all(Bool[!haskey(t, interval)
                        for interval in [randinterval(maxend+1, 2 * maxend)
                                         for i in 1:n]])
-        @test all(Bool[isnull(findfirst(t, interval))
+        @test all(Bool[(findfirst(t, interval) === nothing)
                        for interval in [randinterval(maxend+1, 2 * maxend)
                                         for i in 1:n]])
 
-        @test all(Bool[isnull(findfirst(t, interval, (a,b)->false)) for interval in intervals])
+        @test all(Bool[(findfirst(t, interval, (a,b)->false) === nothing) for interval in intervals])
 
         @test all(Bool[get!(t, interval, -1) == IntervalValue{Int, Int}(interval[1], interval[2], -1)
                        for interval in [randinterval(maxend+1, 2 * maxend)
@@ -219,7 +220,7 @@ end
 
     @testset "from" begin
         n = 100
-        maxend = 1000000
+        global maxend = 1000000
         intervals = [randinterval(1, maxend) for _ in 1:n]
         startpos = 50000
         expected_count = 0
@@ -279,7 +280,7 @@ end
         return length(collect(intersect(t, (intervals[i][1], intervals[j][2])))) == j - i + 1
     end
 
-    @test all(Bool[random_intersection_query() for _ in 1:1000])
+    @test all(Bool[random_intersection_query() for i in 1:1000])
 
     # intervals separated by 1
     t = IntervalMap{Int, Int}()
@@ -304,6 +305,38 @@ end
     @test all(Bool[hasintersection(t, interval[end]) for interval in intervals])
     @test !all(Bool[hasintersection(t, interval[1]) for interval in gaps])
     @test !all(Bool[hasintersection(t, interval[end]) for interval in gaps])
+
+    # firstintersection with lower bound
+    T = IntervalTrees.IntervalBTree{Int, Interval{Int}, 4}
+
+    xs = [
+        # leaf node 1
+        Interval(1, 1),
+        Interval(1, 4),
+        Interval(2, 2),
+        Interval(2, 2),
+
+        # leaf node 2
+        Interval(3, 3),
+        Interval(3, 3),
+        Interval(3, 3),
+        Interval(3, 3),
+
+        # leaf node 3
+        Interval(4, 4),
+        Interval(4, 4),
+        Interval(4, 4),
+        Interval(4, 4),
+    ]
+
+    t = T([Interval(4,4)])
+
+    @test !(IntervalTrees.firstintersection(t.root, Interval(4,4), Interval(2,2))[1] === nothing)
+
+    i = IntervalTrees.Intersection{Int, Interval{Int}, 4}()
+    IntervalTrees.firstintersection!(t, Interval(4,4), Interval(2,2),
+                                     i, IntervalTrees.true_cmp)
+    @test i.index != 0
 end
 
 
@@ -329,7 +362,7 @@ end
     n = 10000
     t1 = IntervalTrees.IntervalMap{Int, Int}()
     t2 = IntervalTrees.IntervalMap{Int, Int}()
-    maxend = 1000000
+    global maxend = 1000000
     for k in 1:n
         # generate small-ish intervals so we avoid the worst case
         # of O(n^2) intersecting pairs and this test runs quickly
@@ -604,7 +637,7 @@ end
     @test IntervalTrees.findidx(node, x) == 0
 
     result = IntervalTrees.Intersection{K, V, B}()
-    IntervalTrees.firstintersection!(node, x, Nullable{V}(), result, IntervalTrees.true_cmp)
+    IntervalTrees.firstintersection!(node, x, nothing, result, IntervalTrees.true_cmp)
     @test result.index == 0
 
     @test IntervalTrees.firstfrom(node, 1) == (node, 0)

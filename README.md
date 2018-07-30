@@ -136,8 +136,9 @@ intersects some interval in `t`.
 ## Algorithms
 
 Multiple data structures are refered to as "interval trees". What's implemented
-here is the data structure described in the [Cormen, et al. "Algorithms" book](https://en.wikipedia.org/wiki/Introduction_to_Algorithms), or
-what's refered to as an [augmented
+here is the data structure described in the [Cormen, et al. "Algorithms"
+book](https://en.wikipedia.org/wiki/Introduction_to_Algorithms), or what's
+refered to as an [augmented
 tree](http://en.wikipedia.org/wiki/Interval_tree#Augmented_tree) in the
 wikipedia article. This sort of data structure is just an balanced search tree
 augmented with a field to keep track of the maximum interval end point in that

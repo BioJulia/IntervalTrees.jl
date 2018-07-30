@@ -13,8 +13,10 @@ export
     from,
     value
 
-include("slice.jl")
+using Compat
+using Compat: notnothing
 
+include("slice.jl")
 
 """
 An `AbstractInterval{T}` must have a `first` and `last` function each returning
@@ -27,11 +29,9 @@ function basic_isless(u::AbstractInterval, v::AbstractInterval)
     return first(u) < first(v) || (first(u) == first(v) && last(u) < last(v))
 end
 
-
 function Base.isless(u::AbstractInterval, v::AbstractInterval)
     return basic_isless(u, v)
 end
-
 
 """
 A basic interval.
@@ -40,11 +40,11 @@ struct Interval{T} <: AbstractInterval{T}
     first::T
     last::T
 end
-Base.convert(::Type{Interval{T}}, range::Range{T}) where T = Interval(first(range), last(range))
-Interval(range::Range{T}) where T = convert(Interval{T}, range)
+Base.convert(::Type{Interval{T}}, range::AbstractRange{T}) where T =
+    Interval(first(range), last(range))
+Interval(range::AbstractRange{T}) where T = convert(Interval{T}, range)
 Base.first(i::Interval{T}) where T = i.first
 Base.last(i::Interval{T}) where T = i.last
-
 
 """
 An interval with some associated data.
@@ -54,7 +54,8 @@ struct IntervalValue{K, V} <: AbstractInterval{K}
     last::K
     value::V
 end
-IntervalValue(range::Range{K}, value::V) where {K, V} = IntervalValue(first(range), last(range), value)
+IntervalValue(range::AbstractRange{K}, value::V) where {K, V} =
+    IntervalValue(first(range), last(range), value)
 
 valtype(::Type{IntervalValue{K,V}}) where {K, V} = V
 
@@ -99,18 +100,18 @@ mutable struct InternalNode{K, V, B} <: Node{K, V, B}
 
     children::Slice{Node{K, V, B}, B}
 
-    parent::Nullable{InternalNode{K, V, B}}
+    parent::Union{Nothing, InternalNode{K, V, B}}
 
     # Sibling/cousin pointers.
-    left::Nullable{InternalNode{K, V, B}}
-    right::Nullable{InternalNode{K, V, B}}
+    left::Union{Nothing, InternalNode{K, V, B}}
+    right::Union{Nothing, InternalNode{K, V, B}}
 
     function InternalNode{K,V,B}() where {K,V,B}
         return new{K,V,B}(
             Slice{Interval{K}, B}(), zero(K), Slice{K, B}(), Slice{Node{K, V, B}, B}(),
-            Nullable{InternalNode{K, V, B}}(),
-            Nullable{InternalNode{K, V, B}}(),
-            Nullable{InternalNode{K, V, B}}())
+            nothing,
+            nothing,
+            nothing)
     end
 end
 
@@ -128,19 +129,19 @@ mutable struct LeafNode{K, V, B} <: Node{K, V, B}
     # maximum interval end-point in this leaf node.
     maxend::K
 
-    parent::Nullable{InternalNode{K, V, B}}
+    parent::Union{Nothing, InternalNode{K, V, B}}
 
     # Sibling/cousin pointers.
-    left::Nullable{LeafNode{K, V, B}}
-    right::Nullable{LeafNode{K, V, B}}
+    left::Union{Nothing, LeafNode{K, V, B}}
+    right::Union{Nothing, LeafNode{K, V, B}}
 
     function LeafNode{K,V,B}() where {K,V,B}
         return new{K,V,B}(
-            Array{V}(B), Array{Interval{K}}(B), 0,
+            Array{V}(undef, B), Array{Interval{K}}(undef, B), 0,
             zero(K),
-            Nullable{InternalNode{K, V, B}}(),
-            Nullable{LeafNode{K, V, B}}(),
-            Nullable{LeafNode{K, V, B}}())
+            nothing,
+            nothing,
+            nothing)
     end
 end
 
@@ -234,8 +235,8 @@ mutable struct IntervalBTree{K, V, B}
         numleaves = cld(n, B - 2)
         leaves = [LeafNode{K, V, B}() for _ in 1:numleaves]
 
-        maxends = Vector{K}(numleaves)
-        minkeys = Vector{Interval{K}}(numleaves)
+        maxends = Vector{K}(undef, numleaves)
+        minkeys = Vector{Interval{K}}(undef, numleaves)
 
         # divy up the keys and values among the leaves
         keys_per_leaf = cld(n, numleaves)
@@ -367,7 +368,7 @@ end
 
 
 mutable struct IntervalBTreeIteratorState{K, V, B}
-    leaf::Nullable{LeafNode{K, V, B}}
+    leaf::Union{Nothing, LeafNode{K, V, B}}
     i::Int
 end
 
@@ -378,13 +379,13 @@ function Base.start(t::IntervalBTree{K, V, B}) where {K, V, B}
     while !isa(node, LeafNode{K, V, B})
         node = node.children[1]
     end
-    return IntervalBTreeIteratorState(Nullable(node), 1)
+    return IntervalBTreeIteratorState(node, 1)
 end
 
 
-function Base.next(t::IntervalBTree{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    leaf = get(state.leaf)
+@inline function Base.next(t::IntervalBTree{K, V, B},
+                           state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
+    leaf = state.leaf
     entry = leaf.entries[state.i]
     if state.i < length(leaf)
         state.i += 1
@@ -398,7 +399,7 @@ end
 
 function Base.done(t::IntervalBTree{K, V, B},
                    state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return isnull(state.leaf) || isempty(get(state.leaf))
+    return state.leaf === nothing || isempty(state.leaf)
 end
 
 
@@ -411,7 +412,7 @@ struct IntervalFromIterator{K, V, B}
 end
 
 Base.eltype(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = V
-Base.iteratorsize(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = Base.SizeUnknown()
+Compat.IteratorSize(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = Base.SizeUnknown()
 
 function from(t::IntervalBTree{K, V, B}, p) where {K, V, B}
     return IntervalFromIterator{K, V, B}(t, convert(K, p))
@@ -421,7 +422,7 @@ end
 function Base.start(it::IntervalFromIterator{K, V, B}) where {K, V, B}
     node, i = firstfrom(it.t, it.p)
     if i == 0
-        return IntervalBTreeIteratorState{K, V, B}(Nullable{LeafNode{K, V, B}}(), i)
+        return IntervalBTreeIteratorState{K, V, B}(nothing, i)
     else
         return IntervalBTreeIteratorState{K, V, B}(node, i)
     end
@@ -450,15 +451,16 @@ function split!(left::LeafNode{K, V, B}) where {K, V, B}
     right.right = left.right
     right.left = left
     left.right = right
-    if !isnull(right.right)
-        get(right.right).left = right
+    if right.right !== nothing
+        right.right = notnothing(right.right)
+        right.right.left = right
     end
     right.parent = left.parent
 
     m = length(left)
     resize!(right, m - div(m, 2))
-    copy!(right.entries, 1, left.entries, div(m, 2) + 1, length(right))
-    copy!(right.keys, 1, left.keys, div(m, 2) + 1, length(right))
+    copyto!(right.entries, 1, left.entries, div(m, 2) + 1, length(right))
+    copyto!(right.keys, 1, left.keys, div(m, 2) + 1, length(right))
     resize!(left, div(m, 2))
 
     left.maxend = last(left.keys[1])
@@ -481,8 +483,9 @@ function split!(left::InternalNode{K, V, B}) where {K, V, B}
     right.right = left.right
     right.left = left
     left.right = right
-    if !isnull(right.right)
-        get(right.right).left = right
+    if right.right !== nothing
+        right.right = notnothing(right.right)
+        right.right.left = right
     end
     right.parent = left.parent
 
@@ -492,9 +495,9 @@ function split!(left::InternalNode{K, V, B}) where {K, V, B}
     resize!(right.maxends, m - div(m, 2))
     resize!(right.keys, m - div(m, 2) - 1)
 
-    copy!(right.children, 1, left.children, div(m, 2)+1, length(right.children))
-    copy!(right.maxends, 1, left.maxends, div(m, 2)+1, length(right.maxends))
-    copy!(right.keys, 1, left.keys, div(m, 2)+1, length(right.keys))
+    copyto!(right.children, 1, left.children, div(m, 2)+1, length(right.children))
+    copyto!(right.maxends, 1, left.maxends, div(m, 2)+1, length(right.maxends))
+    copyto!(right.keys, 1, left.keys, div(m, 2)+1, length(right.keys))
 
     resize!(left.children, div(m, 2))
     resize!(left.maxends, div(m, 2))
@@ -537,11 +540,7 @@ function nodemaxend(t::LeafNode{K, V, B}) where {K, V, B}
 end
 
 
-function sameparent(u::Node{K, V, B}, v::Node{K, V, B}) where {K, V, B}
-    return (isnull(u.parent) && isnull(v.parent)) ||
-           (!isnull(u.parent) && !isnull(v.parent) && get(u.parent) == get(v.parent))
-end
-
+sameparent(u::Node{K, V, B}, v::Node{K, V, B}) where {K, V, B} = (u.parent == v.parent)
 
 # Find the first leaf node in the tree
 function firstleaf(t::IntervalBTree)
@@ -561,8 +560,8 @@ end
 
 # Find the root node
 function root(t::Node)
-    while !isnull(t.parent)
-        t = get(t.parent)
+    while t.parent !== nothing
+        t = notnothing(t.parent)
     end
     return t
 end
@@ -602,7 +601,7 @@ function _push!(t::IntervalBTree{K, V, B},
                 node::InternalNode{K, V, B},
                 entry::V, unique_key::Bool, update::Bool) where {K, V, B}
     i = findidx(node, entry) # key index
-    j = i <= length(node) - 1 && entry >= node.keys[i] ? i + 1 : i # child index
+    j = i <= length(node) - 1 && entry < node.keys[i] ? i : i + 1 # child index
     return _push!(t, node.children[j], entry, unique_key, update)
 end
 
@@ -641,11 +640,11 @@ function _push!(t::IntervalBTree{K, V, B},
         child = leftleaf
         rightnode = rightleaf
         hassplit = true
-        while !isnull(parent)
-            p = get(parent)
+        while parent !== nothing
+            p = notnothing(parent)
             if hassplit
                 i = findidx(p, entry) # key index
-                j = i <= length(p) - 1 && entry >= p.keys[i] ? i + 1 : i # child index
+                j = i <= length(p) - 1 && entry < p.keys[i] ? i : i + 1 # child index
                 p.maxends[j] = p.children[j].maxend
                 insert!(p.children, j + 1, rightnode)
                 insert!(p.maxends, j + 1, p.children[j+1].maxend)
@@ -662,7 +661,11 @@ function _push!(t::IntervalBTree{K, V, B},
                 end
             else
                 p.maxend = max(p.maxend, last(entry))
-                p.maxends[findfirst(p.children, child)] = child.maxend
+                ifind = @compat findfirst(isequal(child), p.children)
+                if ifind === nothing
+                    ifind = 0
+                end
+                p.maxends[ifind] = child.maxend
             end
             child = p
             parent = p.parent
@@ -683,10 +686,14 @@ function _push!(t::IntervalBTree{K, V, B},
         # travel back up the tree setting maxend values
         parent = node.parent
         child = node
-        while !isnull(parent)
-            p = get(parent)
+        while parent !== nothing
+            p = notnothing(parent)
             p.maxend = max(p.maxend, last(entry))
-            p.maxends[findfirst(p.children, child)] = child.maxend
+            ifind = @compat findfirst(isequal(child), p.children)
+            if ifind === nothing
+                ifind = 0
+            end
+            p.maxends[ifind] = child.maxend
             parent = p.parent
             child = p
         end
@@ -721,7 +728,7 @@ function deletefirst!(t::IntervalBTree{K, V, B}, key::Interval{K}) where {K, V, 
     # if the root has only one child, promote the child
     if isa(t.root, InternalNode) && length(t.root) == 1
         t.root = t.root.children[1]
-        t.root.parent = Nullable{InternalNode{K, V, B}}()
+        t.root.parent = nothing
     end
 
     return t
@@ -809,8 +816,8 @@ function _deletefirst!(t::InternalNode{K, V, B}, key::Interval{K}) where {K, V, 
         end
 
         # borrow right
-        if !isnull(t.right)
-            right = get(t.right)
+        if t.right !== nothing
+            right = notnothing(t.right)
             if sameparent(right, t) && length(right) > minsize
                 splice!(right.keys, 1)
                 push!(t.children, splice!(right.children, 1))
@@ -825,8 +832,8 @@ function _deletefirst!(t::InternalNode{K, V, B}, key::Interval{K}) where {K, V, 
         end
 
         # borrow left
-        if !isnull(t.left)
-            left = get(t.left)
+        if t.left !== nothing
+            left = notnothing(t.left)
             if sameparent(left, t) && length(left) > minsize
                 insert!(t.children, 1, pop!(left.children))
                 insert!(t.maxends, 1, pop!(left.maxends))
@@ -841,13 +848,14 @@ function _deletefirst!(t::InternalNode{K, V, B}, key::Interval{K}) where {K, V, 
         end
 
         # merge with left
-        if !isnull(t.left)
-            left = get(t.left)
+        if t.left !== nothing
+            left = notnothing(t.left)
             if sameparent(left, t)
                 merge!(left, t)
                 left.right = t.right
-                if !isnull(t.right)
-                    get(t.right).left = left
+                if t.right !== nothing
+                    t.right = notnothing(t.right)
+                    t.right.left = left
                 end
 
                 return DeleteResult(true, KEYFATE_DELETE)
@@ -855,12 +863,13 @@ function _deletefirst!(t::InternalNode{K, V, B}, key::Interval{K}) where {K, V, 
         end
 
         # merge with right
-        if !isnull(t.right)
-            right = get(t.right)
+        if t.right !== nothing
+            right = notnothing(t.right)
             if sameparent(right, t)
                 merge!(t, right)
-                if !isnull(right.right)
-                    get(right.right).left = t
+                if right.right !== nothing
+                    right.right = notnothing(right.right)
+                    right.right.left = t
                 end
                 t.right = right.right
 
@@ -904,8 +913,8 @@ function _deletefirst!(t::LeafNode{K, V, B}, key::Interval{K}) where {K, V, B}
     end
 
     # borrow right
-    if !isnull(t.right)
-        right = get(t.right)
+    if t.right !== nothing
+        right = notnothing(t.right)
         if sameparent(right, t) && length(right) > minsize
             push!(t, splice!(right, 1))
             t.maxend = max(t.maxend, last(t.keys[t.count]))
@@ -916,8 +925,8 @@ function _deletefirst!(t::LeafNode{K, V, B}, key::Interval{K}) where {K, V, B}
     end
 
     # borrow left
-    if !isnull(t.left)
-        left = get(t.left)
+    if t.left !== nothing
+        left = notnothing(t.left)
         if sameparent(left, t) && length(left) > minsize
             insert!(t, 1, pop!(left))
             t.maxend = max(t.maxend, last(t.keys[1]))
@@ -928,25 +937,27 @@ function _deletefirst!(t::LeafNode{K, V, B}, key::Interval{K}) where {K, V, B}
     end
 
     # merge with left
-    if !isnull(t.left)
-        left = get(t.left)
+    if t.left !== nothing
+        left = notnothing(t.left)
         if sameparent(left, t)
             merge!(left, t)
             left.right = t.right
-            if !isnull(t.right)
-                get(t.right).left = left
+            if t.right !== nothing
+                t.right = notnothing(t.right)
+                t.right.left = left
             end
             return DeleteResult(true, KEYFATE_DELETE)
         end
     end
 
     # merge with right
-    if !isnull(t.right)
-        right = get(t.right)
+    if t.right !== nothing
+        right = notnothing(t.right)
         if sameparent(right, t)
             merge!(t, right)
-            if !isnull(right.right)
-                get(right.right).left = t
+            if right.right !== nothing
+                right.right = notnothing(right.right)
+                right.right.left = t
             end
             t.right = right.right
             return DeleteResult(true, KEYFATE_DELETE_RIGHT)
@@ -963,8 +974,8 @@ function merge!(left::LeafNode{K, V, B}, right::LeafNode{K, V, B}) where {K, V, 
     leftlen, rightlen = length(left), length(right)
     @assert leftlen + rightlen <= B
     resize!(left, leftlen + rightlen)
-    copy!(left.entries, leftlen+1, right.entries, 1, length(right))
-    copy!(left.keys, leftlen+1, right.keys, 1, length(right))
+    copyto!(left.entries, leftlen+1, right.entries, 1, length(right))
+    copyto!(left.keys, leftlen+1, right.keys, 1, length(right))
     left.maxend = nodemaxend(left)
     return
 end
@@ -977,13 +988,13 @@ function merge!(left::InternalNode{K, V, B}, right::InternalNode{K, V, B}) where
     resize!(left.keys, leftlen + rightlen - 1)
     resize!(left.children, leftlen + rightlen)
     resize!(left.maxends, leftlen + rightlen)
-    copy!(left.children, leftlen+1, right.children, 1, length(right.children))
-    copy!(left.maxends, leftlen+1, right.maxends, 1, length(right.maxends))
+    copyto!(left.children, leftlen+1, right.children, 1, length(right.children))
+    copyto!(left.maxends, leftlen+1, right.maxends, 1, length(right.maxends))
     for i in leftlen+1:length(left.children)
         left.children[i].parent = left
     end
     left.keys[leftlen] = minkey(left.children[leftlen+1])
-    copy!(left.keys, leftlen+1, right.keys, 1, length(right.keys))
+    copyto!(left.keys, leftlen+1, right.keys, 1, length(right.keys))
     left.maxend = nodemaxend(left)
     return
 end
@@ -1018,7 +1029,7 @@ end
 
 function Base.haskey(t::InternalNode{K, V, B}, key::AbstractInterval{K}) where {K, V, B}
     i = findidx(t, key)
-    if i <= length(t) - 1 && key >= t.keys[i]
+    if i <= length(t) - 1 && !(key < t.keys[i])
         return haskey(t.children[i+1], key)
     else
         return haskey(t.children[i], key)
@@ -1038,22 +1049,22 @@ function Base.findfirst(t::LeafNode{K, V, B}, key::AbstractInterval{K}, f) where
           first(t.keys[i]) == first(key) &&
           last(t.keys[i]) == last(key)
         if f(t.entries[i], key)
-            return Nullable(t.entries[i])
+            return t.entries[i]
         end
         i += 1
-        if i > length(t) && !isnull(t.right)
-            t = get(t.right)
+        if i > length(t) && t.right !== nothing
+            t = notnothing(t.right)
             i = 1
         end
     end
 
-    return Nullable{V}()
+    return nothing
 end
 
 
 function Base.findfirst(t::InternalNode{K, V, B}, key::AbstractInterval{K}, f) where {K, V, B}
     i = findidx(t, key)
-    if i <= length(t) - 1 && key >= t.keys[i]
+    if i <= length(t) - 1 && !(key < t.keys[i])
         return findfirst(t.children[i+1], key, f)
     else
         return findfirst(t.children[i], key, f)
@@ -1157,7 +1168,7 @@ end
 # searched.
 function firstintersection!(t::IntervalBTree{K, V, B},
                             query::AbstractInterval{K},
-                            lower::Nullable{V},
+                            lower::Union{Nothing, V},
                             out::Intersection{K, V, B},
                             filter::F) where {F, K, V, B}
     return firstintersection!(t.root, query, lower, out, filter)
@@ -1166,7 +1177,7 @@ end
 
 function firstintersection!(t::InternalNode{K, V, B},
                             query::AbstractInterval{K},
-                            lower::Nullable{V},
+                            lower::Union{Nothing, V},
                             out::Intersection{K, V, B},
                             filter::F) where {F, K, V, B}
     if isempty(t) || t.maxend < first(query)
@@ -1176,7 +1187,7 @@ function firstintersection!(t::InternalNode{K, V, B},
 
     (query_first, query_last) = (first(query), last(query))
 
-    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.keys, get(lower))
+    i = lower === nothing ? 1 : searchsortedfirst(t.keys, notnothing(lower))
 
     while i <= length(t.children)
         if i > 1 && unsafe_getindex(t.keys, i-1).first > query_last
@@ -1200,7 +1211,7 @@ end
 
 function firstintersection!(t::LeafNode{K, V, B},
                             query::AbstractInterval{K},
-                            lower::Nullable{V},
+                            lower::Union{Nothing, V},
                             out::Intersection{K, V, B},
                             filter::F) where {F, K, V, B}
     if isempty(t) || t.maxend < first(query)
@@ -1209,8 +1220,8 @@ function firstintersection!(t::LeafNode{K, V, B},
     end
 
     # TODO: search keys
-    i = isnull(lower) ? 1 :
-        1 + searchsortedlast(t.entries, get(lower), 1, Int(t.count),
+    i = lower === nothing ? 1 :
+        searchsortedfirst(t.entries, notnothing(lower), 1, Int(t.count),
                              Base.ord(basic_isless, identity, false))
 
     while i <= length(t)
@@ -1231,12 +1242,12 @@ end
 
 function firstintersection(t::InternalNode{K, V, B},
                            query::Interval{K},
-                           lower::Nullable{Interval{K}}) where {K, V, B}
+                           lower::Union{Nothing, Interval{K}}) where {K, V, B}
     if isempty(t) || t.maxend < first(query)
-        return (Nullable{LeafNode{K, V, B}}(), 1)
+        return (nothing, 1)
     end
 
-    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.keys, get(lower))
+    i = lower === nothing ? 1 : searchsortedfirst(t.keys, notnothing(lower))
 
     while i <= length(t.children)
         if i > 1 && unsafe_getindex(t.keys, i-1).first > last(query)
@@ -1244,34 +1255,37 @@ function firstintersection(t::InternalNode{K, V, B},
         end
 
         if t.maxends[i] >= first(query)
-            return firstintersection(unsafe_getindex(t.children, i), query,
+            w, k = firstintersection(unsafe_getindex(t.children, i), query,
                                      lower)
+            w !== nothing && return notnothing(w), k
         end
         i += 1
     end
 
-    return (Nullable{LeafNode{K, V, B}}(), 1)
+    return (nothing, 1)
 end
 
 
 function firstintersection(t::LeafNode{K, V, B}, query::Interval{K},
-                           lower::Nullable{Interval{K}}) where {K, V, B}
+                           lower::Union{Nothing, Interval{K}}) where {K, V, B}
 
     if isempty(t) || t.maxend < first(query)
-        return (Nullable{LeafNode{K, V, B}}(), 1)
+        return (nothing, 1)
     end
 
-    i = isnull(lower) ? 1 : 1 + searchsortedlast(t.keys, get(lower))
+    i = lower === nothing ? 1 : searchsortedfirst(t.keys, notnothing(lower))
+
     while i <= length(t)
-        if intersects(t.keys[i], query)
-            return (Nullable(t), i)
+        if intersects(t.keys[i], query) &&
+           (lower === nothing || !basic_isless(t.keys[i], notnothing(lower)))
+            return (t, i)
         elseif last(query) < first(t.keys[i])
             break
         end
         i += 1
     end
 
-    return (Nullable{LeafNode{K, V, B}}(), 1)
+    return (nothing, 1)
 end
 
 
@@ -1330,11 +1344,9 @@ function nextintersection!(t::LeafNode{K, V, B}, i::Integer,
         end
         j = 1
 
-        if isnull(t.right)
-            break
-        end
+        t.right === nothing && break
 
-        t = get(t.right)
+        t = notnothing(t.right)
 
         if minstart(t) > last(query)
             break
@@ -1345,7 +1357,7 @@ function nextintersection!(t::LeafNode{K, V, B}, i::Integer,
         # behavior in the presence of extremely long intervals.
         if t.maxend < first(query)
             return firstintersection!(root(t), query,
-                                      Nullable(t.entries[t.count]), out, filter)
+                                      t.entries[t.count], out, filter)
         end
     end
 
@@ -1370,7 +1382,7 @@ mutable struct IntervalIntersectionIterator{F, K, V, B}
 end
 
 Base.eltype(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = V
-Base.iteratorsize(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = Base.SizeUnknown()
+Compat.IteratorSize(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = Base.SizeUnknown()
 
 # Intersect an interval tree t with a single interval, returning an iterator
 # over the intersecting (key, value) pairs in t.
@@ -1395,11 +1407,11 @@ end
 
 
 function Base.start(it::IntervalIntersectionIterator{F, K, V, B}) where {F, K, V, B}
-    return firstintersection!(it.t, it.query, Nullable{V}(), it.intersection, it.filter)
+    return firstintersection!(it.t, it.query, nothing, it.intersection, it.filter)
 end
 
 
-function Base.next(it::IntervalIntersectionIterator{F, K, V, B}, ::Void) where {F, K, V, B}
+function Base.next(it::IntervalIntersectionIterator{F, K, V, B}, ::Nothing) where {F, K, V, B}
     intersection = it.intersection
     entry = intersection.node.entries[intersection.index]
     nextintersection!(intersection.node, intersection.index,
@@ -1408,7 +1420,7 @@ function Base.next(it::IntervalIntersectionIterator{F, K, V, B}, ::Void) where {
 end
 
 
-function Base.done(it::IntervalIntersectionIterator{F, K, V, B}, ::Void) where {F, K, V, B}
+function Base.done(it::IntervalIntersectionIterator{F, K, V, B}, ::Nothing) where {F, K, V, B}
     return it.intersection.index == 0
 end
 
@@ -1426,9 +1438,9 @@ mutable struct IntersectionIterator{F, K, V1, B1, V2, B2}
     isdone::Bool
 
     # intersection state
-    u::Nullable{LeafNode{K, V1, B1}}
-    v::Nullable{LeafNode{K, V2, B2}}
-    w::Nullable{LeafNode{K, V2, B2}}
+    u::Union{Nothing, LeafNode{K, V1, B1}}
+    v::Union{Nothing, LeafNode{K, V2, B2}}
+    w::Union{Nothing, LeafNode{K, V2, B2}}
     i::Int
     j::Int
     k::Int
@@ -1439,13 +1451,13 @@ mutable struct IntersectionIterator{F, K, V1, B1, V2, B2}
 end
 
 Base.eltype(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Tuple{V1,V2}
-Base.iteratorsize(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Base.SizeUnknown()
+Compat.IteratorSize(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Base.SizeUnknown()
 
 function Base.start(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
     it.isdone = true
     if it.successive
-        it.u = isempty(it.t1) ? Nullable{LeafNode{K, V1, B1}}() : firstleaf(it.t1)
-        it.w = isempty(it.t2) ? Nullable{LeafNode{K, V2, B2}}() : firstleaf(it.t2)
+        it.u = isempty(it.t1) ? nothing : firstleaf(it.t1)
+        it.w = isempty(it.t2) ? nothing : firstleaf(it.t2)
         it.i, it.k = 1, 1
         successive_nextintersection!(it)
     else
@@ -1465,8 +1477,8 @@ function Base.start(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K,
         # mergesort, except that some backtracking is needed since intersection
         # isn't as simple as ordering.
 
-        it.u = isempty(it.t1) ? Nullable{LeafNode{K, V1, B1}}() : firstleaf(it.t1)
-        it.v = isempty(it.t2) ? Nullable{LeafNode{K, V2, B2}}() : firstleaf(it.t2)
+        it.u = isempty(it.t1) ? nothing : firstleaf(it.t1)
+        it.v = isempty(it.t2) ? nothing : firstleaf(it.t2)
         it.w = it.v
         it.i, it.j, it.k = 1, 1, 1
         iterative_nextintersection!(it)
@@ -1483,21 +1495,17 @@ function iterative_nextintersection!(
     it.isdone = true
 
     while true
-        if isnull(u)
-            return
-        end
-        unode = get(u)
+        u === nothing && return
+        unode = notnothing(u)
         ukey = unode.keys[i]
 
-        if isnull(v)
-            return
-        end
-        vnode = get(v)
+        v === nothing && return
+        vnode = notnothing(v)
         vkey = vnode.keys[j]
 
         # find next intersection w
-        while !isnull(w)
-            wnode = get(w)
+        while w !== nothing
+            wnode = notnothing(w)
             wkey = wnode.keys[k]
 
             if first(wkey) <= last(ukey)
@@ -1519,15 +1527,13 @@ function iterative_nextintersection!(
         # if no intersection found, advance u and start again
         @nextleafkey(unode, u, i)
 
-        if isnull(u)
-            break
-        end
+        u === nothing && break
 
         # find new v corresponding to new u
-        unode = get(u)
+        unode = notnothing(u)
         ukey = unode.keys[i]
-        while !isnull(v)
-            vnode = get(v)
+        while v !== nothing
+            vnode = notnothing(v)
             vkey = vnode.keys[j]
 
             if last(vkey) < first(ukey)
@@ -1558,15 +1564,13 @@ function successive_nextintersection!(
     it.isdone = true
 
     while true
-        if isnull(u)
-            return
-        end
-        unode = get(u)
+        u === nothing && return
+        unode = notnothing(u)
         ukey = unode.keys[i]
 
         # find next intersection w
-        while !isnull(w)
-            wnode = get(w)
+        while w !== nothing
+            wnode = notnothing(w)
             wkey = wnode.keys[k]
 
             if first(wkey) <= last(ukey)
@@ -1586,10 +1590,10 @@ function successive_nextintersection!(
                     # start over from the top of the leaf. This is a heuristic
                     # to avoid linear search behavior in the presence of
                     # extremely long intervals.
-                    if !isnull(w) && get(w).maxend < first(ukey)
-                        wnode = get(w)
+                    if w !== nothing && w.maxend < first(ukey)
+                        wnode = notnothing(w)
                         w, k = firstintersection(it.t2.root, ukey,
-                                                 Nullable(wnode.keys[wnode.count]))
+                                                 wnode.keys[wnode.count])
                     end
                 end
             else
@@ -1605,15 +1609,13 @@ function successive_nextintersection!(
         # if no intersection found, advance u and start again
         @nextleafkey(unode, u, i)
 
-        if isnull(u)
-            break
-        end
+        u === nothing && break
 
         # find u's first intersection
-        unode = get(u)
+        unode = notnothing(u)
         ukey = unode.keys[i]
 
-        w, k = firstintersection(it.t2.root, ukey, Nullable{Interval{K}}())
+        w, k = firstintersection(it.t2.root, ukey, nothing)
     end
 
     it.u = u
@@ -1624,17 +1626,17 @@ function successive_nextintersection!(
 end
 
 
-function Base.next(it::IntersectionIterator{F, K, V1, B1, V2, B2},
-                   state) where {F, K, V1, B1, V2, B2}
+@inline function Base.next(it::IntersectionIterator{F, K, V1, B1, V2, B2},
+                           state) where {F, K, V1, B1, V2, B2}
     if it.successive
-        u = get(it.u)
-        w = get(it.w)
+        u = it.u
+        w = it.w
         value = (u.entries[it.i], w.entries[it.k])
         @nextleafkey(w, it.w, it.k)
         successive_nextintersection!(it)
     else
-        u = get(it.u)
-        w = get(it.w)
+        u = it.u
+        w = it.w
         value = (u.entries[it.i], w.entries[it.k])
         @nextleafkey(w, it.w, it.k)
         iterative_nextintersection!(it)

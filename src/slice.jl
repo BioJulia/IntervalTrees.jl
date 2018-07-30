@@ -3,12 +3,14 @@
 # We would like for those to behave as though they are resized without actually
 # doing any reallocation.
 
+using Compat
+
 mutable struct Slice{T, N} <: AbstractVector{T}
     data::Vector{T}
     n::Int # Number of stored elements
 
     function Slice{T,N}() where {T,N}
-        return new{T,N}(Vector{T}(N), 0)
+        return new{T,N}(Vector{T}(undef, N), 0)
     end
 end
 
@@ -20,7 +22,6 @@ end
 function Base.size(s::Slice)
     return (s.n,)
 end
-
 
 function Base.getindex(s::Slice{T, N}, i::Integer) where {T, N}
     if 1 <= i <= s.n
@@ -74,7 +75,7 @@ function Base.insert!(s::Slice{T, N}, i::Integer, value) where {T, N}
         # TODO: This should work but won't. Fix this in Julia.
         #copy!(s.data, i+1, s.data, i, s.n - i + 1)
         if isbits(T)
-            unsafe_copy!(pointer(s.data, i+1), pointer(s.data, i), s.n - i + 1)
+            unsafe_copyto!(pointer(s.data, i+1), pointer(s.data, i), s.n - i + 1)
         else
             for k in 0:(s.n - i)
                 @inbounds s.data[s.n+1-k] = s.data[s.n-k]
@@ -122,8 +123,7 @@ end
 function slice_insert!(xs::Vector{T}, count::Integer, i::Integer, value::T) where T
     if count < length(xs) && 1 <= i <= count + 1
         if isbits(T)
-            unsafe_copy!(pointer(xs, i+1),
-                         pointer(xs, i), count - i + 1)
+            unsafe_copyto!(pointer(xs, i+1), pointer(xs, i), count - i + 1)
         else
             for k in 0:(count - i)
                 @inbounds xs[count+1-k] = xs[count-k]
