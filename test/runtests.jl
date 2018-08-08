@@ -2,11 +2,11 @@
 
 using Compat
 
-using Base.Test
+using Test
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
 
-using Compat.Random
+using Random
 
 
 # Convert
@@ -33,7 +33,7 @@ end
 end
 
 # Generating random intervals
-srand(12345)
+Random.seed!(12345)
 global maxend = round(Int, 1e9)
 
 function randinterval(minstart=1, maxend=maxend)

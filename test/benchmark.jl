@@ -1,9 +1,7 @@
-if VERSION > v"0.7-"
-    push!(LOAD_PATH, Base.NamedEnv("v0.7"))
-    using InteractiveUtils
-    using Random
-    using Profile
-end
+push!(LOAD_PATH, Base.NamedEnv("v0.7"))
+using InteractiveUtils
+using Random
+using Profile
 versioninfo()
 
 using IntervalTrees
@@ -57,7 +55,7 @@ function random_query(tree, queries)
     end
     return n
 end
-srand(1234)
+Random.seed!(1234)
 intervals = shuffle!(collect(tree))
 for _ in 1:5
     @time random_query(tree, intervals)
