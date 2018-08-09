@@ -77,7 +77,31 @@ var documenterSearchIndex = {"docs": [
     "page": "Types",
     "title": "Types",
     "category": "page",
-    "text": ""
+    "text": "CurrentModule = IntervalTrees"
+},
+
+{
+    "location": "man/types.html#IntervalTrees.AbstractInterval",
+    "page": "Types",
+    "title": "IntervalTrees.AbstractInterval",
+    "category": "type",
+    "text": "Types deriving from AbstractInterval{T} must have a first and last function each returning a value of type T, and first(i) <= last(i) must always be true.\n\n\n\n\n\n"
+},
+
+{
+    "location": "man/types.html#IntervalTrees.Interval",
+    "page": "Types",
+    "title": "IntervalTrees.Interval",
+    "category": "type",
+    "text": "A basic interval.\n\n\n\n\n\n"
+},
+
+{
+    "location": "man/types.html#IntervalTrees.IntervalValue",
+    "page": "Types",
+    "title": "IntervalTrees.IntervalValue",
+    "category": "type",
+    "text": "An interval with some associated data.\n\n\n\n\n\n"
 },
 
 {
@@ -85,7 +109,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Types",
     "title": "Intervals & IntervalTrees",
     "category": "section",
-    "text": "IntervalTrees exports an abstract type AbstractInterval{K}. Types deriving from it are expected to implement first and last methods that return the values of type K giving the inclusive range of the interval.There are also basic interval type provided:struct Interval{T} <: AbstractInterval{T}\n    first::T\n    last::T\nend\n\nstruct IntervalValue{K, V} <: AbstractInterval{K}\n    first::K\n    last::K\n    value::V\nendIntervals in this package are always treated as end-inclusive, similar to the Julia Range type.IntervalTrees exports one type: IntervalTree{K, V}.  It implements an associative container mapping (K, K) pairs to to values of type V.  K may be any ordered type, but only pairs (a, b) where a ≤ b can be stored."
+    "text": "IntervalTrees exports an abstract type AbstractInterval{K}, in addition to two basic concrete interval types.AbstractInterval\nInterval\nIntervalValueIntervals in this package are always treated as end-inclusive, similar to the Julia Range type."
 },
 
 {
