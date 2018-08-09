@@ -5,15 +5,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Home",
     "category": "page",
-    "text": ""
-},
-
-{
-    "location": "index.html#img-align\"right\"-src\"./sticker.svg\"-width\"30%\"-/-IntervalTrees-1",
-    "page": "Home",
-    "title": "<img align=\"right\" src=\"./sticker.svg\" width=\"30%\" /> IntervalTrees",
-    "category": "section",
-    "text": "(Image: Latest Release) (Image: MIT License) (Image: Stable documentation) (Image: Lifecycle) (Image: Chat on Discord)"
+    "text": "<h1><img align=\"right\" src=\"./sticker.svg\" width=\"30%\" /> IntervalTrees</h1>(Image: Latest Release) (Image: MIT License) (Image: Stable documentation) (Image: Lifecycle) (Image: Chat on Discord)"
 },
 
 {
