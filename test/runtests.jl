@@ -1,12 +1,9 @@
 #!/usr/bin/env julia
 
-using Compat
-
-using Base.Test
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
-
-using Compat.Random
+using Test
+using Random: seed!, shuffle!
 
 
 # Convert
@@ -33,7 +30,7 @@ end
 end
 
 # Generating random intervals
-srand(12345)
+seed!(12345)
 global maxend = round(Int, 1e9)
 
 function randinterval(minstart=1, maxend=maxend)

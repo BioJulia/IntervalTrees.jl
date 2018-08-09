@@ -13,8 +13,7 @@ export
     from,
     value
 
-using Compat
-using Compat: notnothing
+using Base: notnothing
 
 include("slice.jl")
 
@@ -412,7 +411,7 @@ struct IntervalFromIterator{K, V, B}
 end
 
 Base.eltype(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = V
-Compat.IteratorSize(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = Base.SizeUnknown()
 
 function from(t::IntervalBTree{K, V, B}, p) where {K, V, B}
     return IntervalFromIterator{K, V, B}(t, convert(K, p))
@@ -661,7 +660,7 @@ function _push!(t::IntervalBTree{K, V, B},
                 end
             else
                 p.maxend = max(p.maxend, last(entry))
-                ifind = @compat findfirst(isequal(child), p.children)
+                ifind = findfirst(isequal(child), p.children)
                 if ifind === nothing
                     ifind = 0
                 end
@@ -689,7 +688,7 @@ function _push!(t::IntervalBTree{K, V, B},
         while parent !== nothing
             p = notnothing(parent)
             p.maxend = max(p.maxend, last(entry))
-            ifind = @compat findfirst(isequal(child), p.children)
+            ifind = findfirst(isequal(child), p.children)
             if ifind === nothing
                 ifind = 0
             end
@@ -1382,7 +1381,7 @@ mutable struct IntervalIntersectionIterator{F, K, V, B}
 end
 
 Base.eltype(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = V
-Compat.IteratorSize(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = Base.SizeUnknown()
 
 # Intersect an interval tree t with a single interval, returning an iterator
 # over the intersecting (key, value) pairs in t.
@@ -1451,7 +1450,7 @@ mutable struct IntersectionIterator{F, K, V1, B1, V2, B2}
 end
 
 Base.eltype(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Tuple{V1,V2}
-Compat.IteratorSize(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Base.SizeUnknown()
 
 function Base.start(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
     it.isdone = true
