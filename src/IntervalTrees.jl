@@ -351,25 +351,17 @@ end
 # Iterating
 # ---------
 
-
 mutable struct IntervalBTreeIteratorState{K, V, B}
     leaf::Union{Nothing, LeafNode{K, V, B}}
     i::Int
 end
 
-
-function Base.start(t::IntervalBTree{K, V, B}) where {K, V, B}
-    # traverse to the first leaf node
-    node = t.root
-    while !isa(node, LeafNode{K, V, B})
-        node = node.children[1]
+function Base.iterate(
+        t::IntervalBTree{K, V, B},
+        state::IntervalBTreeIteratorState{K, V, B}=iterinitstate(t)) where {K, V, B}
+    if state.leaf === nothing || isempty(state.leaf)
+        return nothing
     end
-    return IntervalBTreeIteratorState(node, 1)
-end
-
-
-@inline function Base.next(t::IntervalBTree{K, V, B},
-                           state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     leaf = notnothing(state.leaf)
     entry = leaf.entries[state.i]
     if state.i < length(leaf)
@@ -381,16 +373,17 @@ end
     return entry, state
 end
 
-
-function Base.done(t::IntervalBTree{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return state.leaf === nothing || isempty(state.leaf)
+function iterinitstate(t::IntervalBTree{K,V,B}) where {K, V, B}
+    # traverse to the first leaf node
+    node = t.root
+    while !isa(node, LeafNode{K, V, B})
+        node = node.children[1]
+    end
+    return IntervalBTreeIteratorState(node, 1)
 end
 
 
-# Iterate from a given starting from the first interval that intersects a given
-# point.
-
+# Iterate from a given starting from the first interval that intersects a given point.
 struct IntervalFromIterator{K, V, B}
     t::IntervalBTree{K, V, B}
     p::K
@@ -403,26 +396,19 @@ function from(t::IntervalBTree{K, V, B}, p) where {K, V, B}
     return IntervalFromIterator{K, V, B}(t, convert(K, p))
 end
 
+function Base.iterate(
+        it::IntervalFromIterator{K, V, B},
+        state::IntervalBTreeIteratorState{K, V, B}=iterinitstate(it)) where {K, V, B}
+    return iterate(it.t, state)
+end
 
-function Base.start(it::IntervalFromIterator{K, V, B}) where {K, V, B}
+function iterinitstate(it::IntervalFromIterator{K, V, B}) where {K, V, B}
     node, i = firstfrom(it.t, it.p)
     if i == 0
         return IntervalBTreeIteratorState{K, V, B}(nothing, i)
     else
         return IntervalBTreeIteratorState{K, V, B}(node, i)
     end
-end
-
-
-function Base.next(it::IntervalFromIterator{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return next(it.t, state)
-end
-
-
-function Base.done(it::IntervalFromIterator{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return done(it.t, state)
 end
 
 
