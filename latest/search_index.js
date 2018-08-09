@@ -37,7 +37,7 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Testing",
     "category": "section",
-    "text": "IntervalTrees is tested against Julia 0.7 on Linux, OS X, and Windows.PackageEvaluator Latest Build Status\n(Image: ) (Image: ) (Image: ) (Image: )"
+    "text": "IntervalTrees is tested against Julia 0.7 on Linux, OS X, and Windows.PackageEvaluator Latest Build Status\n(Image: ) (Image: ) (Image: Build status) (Image: )"
 },
 
 {
