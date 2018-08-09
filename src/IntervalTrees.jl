@@ -1421,7 +1421,7 @@ end
 Base.eltype(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Tuple{V1,V2}
 Base.IteratorSize(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Base.SizeUnknown()
 
-function Base.start(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
+function Base.iterate(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
     it.isdone = true
     if it.successive
         it.u = isempty(it.t1) ? nothing : firstleaf(it.t1)
@@ -1454,6 +1454,25 @@ function Base.start(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K,
     return nothing
 end
 
+function Base.iterate(it::IntersectionIterator{F, K, V1, B1, V2, B2}, _) where {F, K, V1, B1, V2, B2}
+    if it.isdone
+        return nothing
+    end
+    if it.successive
+        u = it.u
+        w = it.w
+        value = (u.entries[it.i], w.entries[it.k])
+        @nextleafkey(w, it.w, it.k)
+        successive_nextintersection!(it)
+    else
+        u = it.u
+        w = it.w
+        value = (u.entries[it.i], w.entries[it.k])
+        @nextleafkey(w, it.w, it.k)
+        iterative_nextintersection!(it)
+    end
+    return value, nothing
+end
 
 function iterative_nextintersection!(
     it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
@@ -1593,29 +1612,6 @@ function successive_nextintersection!(
     return
 end
 
-
-@inline function Base.next(it::IntersectionIterator{F, K, V1, B1, V2, B2},
-                           state) where {F, K, V1, B1, V2, B2}
-    if it.successive
-        u = it.u
-        w = it.w
-        value = (u.entries[it.i], w.entries[it.k])
-        @nextleafkey(w, it.w, it.k)
-        successive_nextintersection!(it)
-    else
-        u = it.u
-        w = it.w
-        value = (u.entries[it.i], w.entries[it.k])
-        @nextleafkey(w, it.w, it.k)
-        iterative_nextintersection!(it)
-    end
-    return (value, nothing)
-end
-
-
-function Base.done(it::IntersectionIterator, state)
-    return it.isdone
-end
 
 
 # Intersect two interval trees, returning an iterator yielding values of the
