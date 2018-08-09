@@ -330,10 +330,10 @@ end
 
     @test !(IntervalTrees.firstintersection(t.root, Interval(4,4), Interval(2,2))[1] === nothing)
 
-    i = IntervalTrees.Intersection{Int, Interval{Int}, 4}()
+    x = IntervalTrees.Intersection{Int, Interval{Int}, 4}()
     IntervalTrees.firstintersection!(t, Interval(4,4), Interval(2,2),
-                                     i, IntervalTrees.true_cmp)
-    @test i.index != 0
+                                     x, IntervalTrees.true_cmp)
+    @test x.index != 0
 end
 
 
