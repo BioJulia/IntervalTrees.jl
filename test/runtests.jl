@@ -1,12 +1,9 @@
 #!/usr/bin/env julia
 
-using Compat
-
-using Base.Test
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
-
-using Compat.Random
+using Test
+using Random: seed!, shuffle!
 
 
 # Convert
@@ -33,7 +30,7 @@ end
 end
 
 # Generating random intervals
-srand(12345)
+seed!(12345)
 global maxend = round(Int, 1e9)
 
 function randinterval(minstart=1, maxend=maxend)
@@ -333,10 +330,10 @@ end
 
     @test !(IntervalTrees.firstintersection(t.root, Interval(4,4), Interval(2,2))[1] === nothing)
 
-    i = IntervalTrees.Intersection{Int, Interval{Int}, 4}()
+    x = IntervalTrees.Intersection{Int, Interval{Int}, 4}()
     IntervalTrees.firstintersection!(t, Interval(4,4), Interval(2,2),
-                                     i, IntervalTrees.true_cmp)
-    @test i.index != 0
+                                     x, IntervalTrees.true_cmp)
+    @test x.index != 0
 end
 
 
@@ -380,6 +377,7 @@ end
     a = intersect(t1, t2, method=:successive)
     b = intersect(t1, t2, method=:iterative)
     @test collect(a) == collect(b)
+    @test length(collect(a)) == length(collect(b)) > 0
 
     # test filter predicate
     count = 0

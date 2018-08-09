@@ -1,5 +1,3 @@
-__precompile__()
-
 module IntervalTrees
 
 export
@@ -13,8 +11,7 @@ export
     from,
     value
 
-using Compat
-using Compat: notnothing
+using Base: notnothing
 
 include("slice.jl")
 
@@ -184,20 +181,8 @@ function Base.pop!(leaf::LeafNode{K, V, B}) where {K, V, B}
     return x
 end
 
-
-# iterate through entries in a leaf node
-function Base.start(leaf::LeafNode)
-    return 1
-end
-
-
-function Base.next(leaf::LeafNode, i::Int)
-    return (leaf.entries[i], i + 1)
-end
-
-
-function Base.done(leaf::LeafNode, i::Int)
-    return i > length(leaf)
+function Base.iterate(leaf::LeafNode, i::Int=1)
+    return i ≤ length(leaf) ? (leaf.entries[i], i + 1) : nothing
 end
 
 
@@ -366,25 +351,17 @@ end
 # Iterating
 # ---------
 
-
 mutable struct IntervalBTreeIteratorState{K, V, B}
     leaf::Union{Nothing, LeafNode{K, V, B}}
     i::Int
 end
 
-
-function Base.start(t::IntervalBTree{K, V, B}) where {K, V, B}
-    # traverse to the first leaf node
-    node = t.root
-    while !isa(node, LeafNode{K, V, B})
-        node = node.children[1]
+function Base.iterate(
+        t::IntervalBTree{K, V, B},
+        state::IntervalBTreeIteratorState{K, V, B}=iterinitstate(t)) where {K, V, B}
+    if state.leaf === nothing || isempty(state.leaf)
+        return nothing
     end
-    return IntervalBTreeIteratorState(node, 1)
-end
-
-
-@inline function Base.next(t::IntervalBTree{K, V, B},
-                           state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     leaf = notnothing(state.leaf)
     entry = leaf.entries[state.i]
     if state.i < length(leaf)
@@ -396,48 +373,42 @@ end
     return entry, state
 end
 
-
-function Base.done(t::IntervalBTree{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return state.leaf === nothing || isempty(state.leaf)
+function iterinitstate(t::IntervalBTree{K,V,B}) where {K, V, B}
+    # traverse to the first leaf node
+    node = t.root
+    while !isa(node, LeafNode{K, V, B})
+        node = node.children[1]
+    end
+    return IntervalBTreeIteratorState(node, 1)
 end
 
 
-# Iterate from a given starting from the first interval that intersects a given
-# point.
-
+# Iterate from a given starting from the first interval that intersects a given point.
 struct IntervalFromIterator{K, V, B}
     t::IntervalBTree{K, V, B}
     p::K
 end
 
 Base.eltype(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = V
-Compat.IteratorSize(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntervalFromIterator{K, V, B}}) where {K, V, B} = Base.SizeUnknown()
 
 function from(t::IntervalBTree{K, V, B}, p) where {K, V, B}
     return IntervalFromIterator{K, V, B}(t, convert(K, p))
 end
 
+function Base.iterate(
+        it::IntervalFromIterator{K, V, B},
+        state::IntervalBTreeIteratorState{K, V, B}=iterinitstate(it)) where {K, V, B}
+    return iterate(it.t, state)
+end
 
-function Base.start(it::IntervalFromIterator{K, V, B}) where {K, V, B}
+function iterinitstate(it::IntervalFromIterator{K, V, B}) where {K, V, B}
     node, i = firstfrom(it.t, it.p)
     if i == 0
         return IntervalBTreeIteratorState{K, V, B}(nothing, i)
     else
         return IntervalBTreeIteratorState{K, V, B}(node, i)
     end
-end
-
-
-function Base.next(it::IntervalFromIterator{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return next(it.t, state)
-end
-
-
-function Base.done(it::IntervalFromIterator{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return done(it.t, state)
 end
 
 
@@ -661,7 +632,7 @@ function _push!(t::IntervalBTree{K, V, B},
                 end
             else
                 p.maxend = max(p.maxend, last(entry))
-                ifind = @compat findfirst(isequal(child), p.children)
+                ifind = findfirst(isequal(child), p.children)
                 if ifind === nothing
                     ifind = 0
                 end
@@ -689,7 +660,7 @@ function _push!(t::IntervalBTree{K, V, B},
         while parent !== nothing
             p = notnothing(parent)
             p.maxend = max(p.maxend, last(entry))
-            ifind = @compat findfirst(isequal(child), p.children)
+            ifind = findfirst(isequal(child), p.children)
             if ifind === nothing
                 ifind = 0
             end
@@ -1382,7 +1353,7 @@ mutable struct IntervalIntersectionIterator{F, K, V, B}
 end
 
 Base.eltype(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = V
-Compat.IteratorSize(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = Base.SizeUnknown()
 
 # Intersect an interval tree t with a single interval, returning an iterator
 # over the intersecting (key, value) pairs in t.
@@ -1405,23 +1376,20 @@ function Base.intersect(t::IntervalBTree{K, V, B}, query::AbstractInterval{K},
     return IntervalIntersectionIterator{F, K, V, B}(filter, Intersection{K, V, B}(), t, query)
 end
 
-
-function Base.start(it::IntervalIntersectionIterator{F, K, V, B}) where {F, K, V, B}
-    return firstintersection!(it.t, it.query, nothing, it.intersection, it.filter)
+function Base.iterate(it::IntervalIntersectionIterator{F, K, V, B}) where {F, K, V, B}
+    firstintersection!(it.t, it.query, nothing, it.intersection, it.filter)
+    return iterate(it, nothing)
 end
 
-
-function Base.next(it::IntervalIntersectionIterator{F, K, V, B}, ::Nothing) where {F, K, V, B}
+function Base.iterate(it::IntervalIntersectionIterator{F, K, V, B}, _) where {F, K, V, B}
     intersection = it.intersection
+    if intersection.index == 0
+        return nothing
+    end
     entry = intersection.node.entries[intersection.index]
     nextintersection!(intersection.node, intersection.index,
                       it.query, intersection, it.filter)
     return entry, nothing
-end
-
-
-function Base.done(it::IntervalIntersectionIterator{F, K, V, B}, ::Nothing) where {F, K, V, B}
-    return it.intersection.index == 0
 end
 
 
@@ -1451,9 +1419,29 @@ mutable struct IntersectionIterator{F, K, V1, B1, V2, B2}
 end
 
 Base.eltype(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Tuple{V1,V2}
-Compat.IteratorSize(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntersectionIterator{F,K,V1,B1,V2,B2}}) where {F,K,V1,B1,V2,B2} = Base.SizeUnknown()
 
-function Base.start(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
+function Base.iterate(it::IntersectionIterator, _=iterinitstate(it))
+    if it.isdone
+        return nothing
+    end
+    if it.successive
+        u = it.u
+        w = it.w
+        value = (u.entries[it.i], w.entries[it.k])
+        @nextleafkey(w, it.w, it.k)
+        successive_nextintersection!(it)
+    else
+        u = it.u
+        w = it.w
+        value = (u.entries[it.i], w.entries[it.k])
+        @nextleafkey(w, it.w, it.k)
+        iterative_nextintersection!(it)
+    end
+    return value, nothing
+end
+
+function iterinitstate(it::IntersectionIterator)
     it.isdone = true
     if it.successive
         it.u = isempty(it.t1) ? nothing : firstleaf(it.t1)
@@ -1483,9 +1471,8 @@ function Base.start(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K,
         it.i, it.j, it.k = 1, 1, 1
         iterative_nextintersection!(it)
     end
-    return nothing
+    return nothing  # iterator is stateful
 end
-
 
 function iterative_nextintersection!(
     it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
@@ -1625,29 +1612,6 @@ function successive_nextintersection!(
     return
 end
 
-
-@inline function Base.next(it::IntersectionIterator{F, K, V1, B1, V2, B2},
-                           state) where {F, K, V1, B1, V2, B2}
-    if it.successive
-        u = it.u
-        w = it.w
-        value = (u.entries[it.i], w.entries[it.k])
-        @nextleafkey(w, it.w, it.k)
-        successive_nextintersection!(it)
-    else
-        u = it.u
-        w = it.w
-        value = (u.entries[it.i], w.entries[it.k])
-        @nextleafkey(w, it.w, it.k)
-        iterative_nextintersection!(it)
-    end
-    return (value, nothing)
-end
-
-
-function Base.done(it::IntersectionIterator, state)
-    return it.isdone
-end
 
 
 # Intersect two interval trees, returning an iterator yielding values of the

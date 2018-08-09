@@ -1,5 +1,4 @@
 # IntervalTree map operations
-using Compat
 
 const IntervalMap{K, V} = IntervalTree{K, IntervalValue{K, V}}
 
@@ -109,30 +108,21 @@ struct IntervalKeyIterator{K, V, B}
 end
 
 Base.eltype(::Type{IntervalKeyIterator{K,V,B}}) where {K,V,B} = Interval{K}
-Compat.IteratorSize(::Type{IntervalKeyIterator{K,V,B}}) where {K,V,B} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntervalKeyIterator{K,V,B}}) where {K,V,B} = Base.SizeUnknown()
 
 
 function Base.keys(t::IntervalBTree)
     return IntervalKeyIterator(t)
 end
 
-
-function Base.start(it::IntervalKeyIterator{K, V, B}) where {K, V, B}
-    # traverse to the first leaf node
-    node = it.t.root
-    while !isa(node, LeafNode{K, V, B})
-        node = node.children[1]
+function Base.iterate(
+        it::IntervalKeyIterator{K, V, B},
+        state::IntervalBTreeIteratorState{K, V, B}=iterinitstate(it)) where {K, V, B}
+    if state.leaf === nothing || isempty(notnothing(state.leaf))
+        return nothing
     end
-
-    return IntervalBTreeIteratorState(node, 1)
-end
-
-
-function Base.next(t::IntervalKeyIterator{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     leaf = state.leaf
-    key = Interval{K}(first(leaf.entries[state.i]),
-                      last(leaf.entries[state.i]))
+    key = Interval{K}(first(leaf.entries[state.i]), last(leaf.entries[state.i]))
     if state.i < length(leaf)
         state = IntervalBTreeIteratorState{K, V, B}(leaf, state.i + 1)
     else
@@ -141,10 +131,13 @@ function Base.next(t::IntervalKeyIterator{K, V, B},
     return key, state
 end
 
-
-function Base.done(t::IntervalKeyIterator{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return (state.leaf === nothing) || isempty(notnothing(state.leaf))
+function iterinitstate(it::IntervalKeyIterator{K, V, B}) where {K, V, B}
+    # traverse to the first leaf node
+    node = it.t.root
+    while !isa(node, LeafNode{K, V, B})
+        node = node.children[1]
+    end
+    return IntervalBTreeIteratorState(node, 1)
 end
 
 
@@ -153,27 +146,19 @@ struct IntervalValueIterator{K, V <: IntervalValue, B}
 end
 
 Base.eltype(::Type{IntervalValueIterator{K,V,B}}) where {K,V,B} = valtype(V)
-Compat.IteratorSize(::Type{IntervalValueIterator{K,V,B}}) where {K,V,B} = Base.SizeUnknown()
+Base.IteratorSize(::Type{IntervalValueIterator{K,V,B}}) where {K,V,B} = Base.SizeUnknown()
 
 
 function Base.values(t::IntervalBTree{K, V, B}) where {K, V<:IntervalValue, B}
     return IntervalValueIterator(t)
 end
 
-
-function Base.start(it::IntervalValueIterator{K, V, B}) where {K, V, B}
-    # traverse to the first leaf node
-    node = it.t.root
-    while !isa(node, LeafNode{K, V, B})
-        node = node.children[1]
+function Base.iterate(
+        it::IntervalValueIterator{K, V, B},
+        state::IntervalBTreeIteratorState{K, V, B}=iterinitstate(it)) where {K, V, B}
+    if state.leaf === nothing || isempty(notnothing(state.leaf))
+        return nothing
     end
-
-    return IntervalBTreeIteratorState(node, 1)
-end
-
-
-function Base.next(t::IntervalValueIterator{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
     leaf = state.leaf
     value = leaf.entries[state.i].value
     if state.i < length(leaf)
@@ -184,8 +169,11 @@ function Base.next(t::IntervalValueIterator{K, V, B},
     return value, state
 end
 
-
-function Base.done(t::IntervalValueIterator{K, V, B},
-                   state::IntervalBTreeIteratorState{K, V, B}) where {K, V, B}
-    return (state.leaf === nothing) || isempty(notnothing(state.leaf))
+function iterinitstate(it::IntervalValueIterator{K, V, B}) where {K, V, B}
+    # traverse to the first leaf node
+    node = it.t.root
+    while !isa(node, LeafNode{K, V, B})
+        node = node.children[1]
+    end
+    return IntervalBTreeIteratorState(node, 1)
 end
