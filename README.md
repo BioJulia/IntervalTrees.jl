@@ -1,4 +1,4 @@
-# <img align="right" src="./sticker.svg" width="30%" /> IntervalTrees
+<h1><img align="right" src="./sticker.svg" width="30%" /> IntervalTrees</h1>
 
 [![Latest Release](https://img.shields.io/github/release/BioJulia/IntervalTrees.jl.svg?style=flat-square)](https://github.com/BioJulia/IntervalTrees.jl/releases/latest)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](https://github.com/BioJulia/IntervalTrees.jl/blob/master/LICENSE)
@@ -30,12 +30,11 @@ the master branch to try new features before release.
 
 ## Testing
 
-IntervalTrees is tested against Julia `0.6` and current `0.7-dev` on Linux, OS
-X, and Windows.
+IntervalTrees is tested against Julia `0.7` on Linux, OS X, and Windows.
 
 | **PackageEvaluator** | **Latest Build Status** |
 |:--------------------:|:-----------------------:|
-| [![](http://pkg.julialang.org/badges/IntervalTrees_0.6.svg)](http://pkg.julialang.org/?pkg=IntervalTrees) [![](http://pkg.julialang.org/badges/IntervalTrees_0.7.svg)](http://pkg.julialang.org/?pkg=IntervalTrees) | [![](https://travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/BioJulia/IntervalTrees.jl) [![](https://ci.appveyor.com/api/projects/status/github/biojulia/intervaltrees.jl?svg=true)](https://ci.appveyor.com/project/Ward9250/intervaltrees-jl/branch/master) [![](https://codecov.io/gh/BioJulia/IntervalTrees.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/BioJulia/IntervalTrees.jl) |
+| [![](http://pkg.julialang.org/badges/IntervalTrees_0.7.svg)](http://pkg.julialang.org/?pkg=IntervalTrees) | [![](https://travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/BioJulia/IntervalTrees.jl) [![Build status](https://ci.appveyor.com/api/projects/status/3rwbgr40npp95upe/branch/master?svg=true)](https://ci.appveyor.com/project/BenJWard/intervaltrees-jl/branch/master) [![](https://codecov.io/gh/BioJulia/IntervalTrees.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/BioJulia/IntervalTrees.jl) |
 
 
 ## Contributing

@@ -16,8 +16,9 @@ using Base: notnothing
 include("slice.jl")
 
 """
-An `AbstractInterval{T}` must have a `first` and `last` function each returning
-a value of type `T`, and `first(i) <= last(i)` must always be true.
+Types deriving from `AbstractInterval{T}` must have a `first` and `last`
+function each returning a value of type `T`, and `first(i) <= last(i)`
+must always be true.
 """
 abstract type AbstractInterval{T} end
 
@@ -51,6 +52,7 @@ struct IntervalValue{K, V} <: AbstractInterval{K}
     last::K
     value::V
 end
+
 IntervalValue(range::AbstractRange{K}, value::V) where {K, V} =
     IntervalValue(first(range), last(range), value)
 
