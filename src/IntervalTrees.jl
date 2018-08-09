@@ -181,20 +181,8 @@ function Base.pop!(leaf::LeafNode{K, V, B}) where {K, V, B}
     return x
 end
 
-
-# iterate through entries in a leaf node
-function Base.start(leaf::LeafNode)
-    return 1
-end
-
-
-function Base.next(leaf::LeafNode, i::Int)
-    return (leaf.entries[i], i + 1)
-end
-
-
-function Base.done(leaf::LeafNode, i::Int)
-    return i > length(leaf)
+function Base.iterate(leaf::LeafNode, i::Int=1)
+    return i ≤ length(leaf) ? (leaf.entries[i], i + 1) : nothing
 end
 
 
