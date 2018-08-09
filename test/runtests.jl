@@ -377,6 +377,7 @@ end
     a = intersect(t1, t2, method=:successive)
     b = intersect(t1, t2, method=:iterative)
     @test collect(a) == collect(b)
+    @test length(collect(a)) == length(collect(b)) > 0
 
     # test filter predicate
     count = 0
