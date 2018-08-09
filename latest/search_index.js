@@ -5,7 +5,15 @@ var documenterSearchIndex = {"docs": [
     "page": "Home",
     "title": "Home",
     "category": "page",
-    "text": "<h1><img align=\"right\" src=\"./sticker.svg\" width=\"30%\" /> IntervalTrees</h1>(Image: Latest Release) (Image: MIT License) (Image: Stable documentation) (Image: Lifecycle) (Image: Chat on Discord)"
+    "text": ""
+},
+
+{
+    "location": "index.html#IntervalTrees-1",
+    "page": "Home",
+    "title": "IntervalTrees",
+    "category": "section",
+    "text": "(Image: Latest Release) (Image: MIT License) (Image: Stable documentation) (Image: Lifecycle) (Image: Chat on Discord)"
 },
 
 {
