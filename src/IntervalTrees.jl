@@ -1376,23 +1376,20 @@ function Base.intersect(t::IntervalBTree{K, V, B}, query::AbstractInterval{K},
     return IntervalIntersectionIterator{F, K, V, B}(filter, Intersection{K, V, B}(), t, query)
 end
 
-
-function Base.start(it::IntervalIntersectionIterator{F, K, V, B}) where {F, K, V, B}
-    return firstintersection!(it.t, it.query, nothing, it.intersection, it.filter)
+function Base.iterate(it::IntervalIntersectionIterator{F, K, V, B}) where {F, K, V, B}
+    firstintersection!(it.t, it.query, nothing, it.intersection, it.filter)
+    return iterate(it, nothing)
 end
 
-
-function Base.next(it::IntervalIntersectionIterator{F, K, V, B}, ::Nothing) where {F, K, V, B}
+function Base.iterate(it::IntervalIntersectionIterator{F, K, V, B}, _) where {F, K, V, B}
     intersection = it.intersection
+    if intersection.index == 0
+        return nothing
+    end
     entry = intersection.node.entries[intersection.index]
     nextintersection!(intersection.node, intersection.index,
                       it.query, intersection, it.filter)
     return entry, nothing
-end
-
-
-function Base.done(it::IntervalIntersectionIterator{F, K, V, B}, ::Nothing) where {F, K, V, B}
-    return it.intersection.index == 0
 end
 
 
