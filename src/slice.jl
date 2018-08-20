@@ -21,29 +21,16 @@ function Base.size(s::Slice)
     return (s.n,)
 end
 
-function Base.getindex(s::Slice{T, N}, i::Integer) where {T, N}
-    if 1 <= i <= s.n
-        @inbounds x = s.data[i]
-        return x
-    else
-        throw(BoundsError())
-    end
+@inline function Base.getindex(s::Slice{T, N}, i::Integer) where {T, N}
+    @boundscheck checkbounds(s, i)
+    @inbounds return s.data[i]
 end
 
 
-@inline function unsafe_getindex(s::Slice{T, N}, i::Integer) where {T, N}
-    @inbounds x = s.data[i]
-    return x
-end
-
-
-function Base.setindex!(s::Slice{T, N}, value, i::Integer) where {T, N}
-    if 1 <= i <= s.n
-        @inbounds s.data[i] = value
-        return value
-    else
-        throw(BoundsError())
-    end
+@inline function Base.setindex!(s::Slice{T, N}, value, i::Integer) where {T, N}
+    @boundscheck checkbounds(s, i)
+    @inbounds s.data[i] = value
+    return s
 end
 
 
@@ -115,7 +102,6 @@ end
 function Base.searchsortedfirst(s::Slice, x)
     return searchsortedfirst(s.data, x, 1, s.n, Base.Order.Forward)
 end
-
 
 
 function slice_insert!(xs::Vector{T}, count::Integer, i::Integer, value::T) where T

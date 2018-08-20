@@ -1162,14 +1162,12 @@ function firstintersection!(t::InternalNode{K, V, B},
 
     i = lower === nothing ? 1 : searchsortedfirst(t.keys, notnothing(lower))
 
-    while i <= length(t.children)
-        if i > 1 && unsafe_getindex(t.keys, i-1).first > query_last
+    @inbounds while i <= length(t.children)
+        if i > 1 && t.keys[i-1].first > query_last
             break
         end
-
         if t.maxends[i] >= query_first
-            firstintersection!(unsafe_getindex(t.children, i), query, lower,
-                               out, filter)
+            firstintersection!(t.children[i], query, lower, out, filter)
             if out.index > 0
                 return
             end
@@ -1222,14 +1220,12 @@ function firstintersection(t::InternalNode{K, V, B},
 
     i = lower === nothing ? 1 : searchsortedfirst(t.keys, notnothing(lower))
 
-    while i <= length(t.children)
-        if i > 1 && unsafe_getindex(t.keys, i-1).first > last(query)
+    @inbounds while i <= length(t.children)
+        if i > 1 && t.keys[i-1].first > last(query)
             break
         end
-
         if t.maxends[i] >= first(query)
-            w, k = firstintersection(unsafe_getindex(t.children, i), query,
-                                     lower)
+            w, k = firstintersection(t.children[i], query, lower)
             w !== nothing && return notnothing(w), k
         end
         i += 1
