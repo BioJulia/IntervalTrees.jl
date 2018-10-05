@@ -328,7 +328,7 @@ end
 
     t = T([Interval(4,4)])
 
-    @test !(IntervalTrees.firstintersection(t.root, Interval(4,4), Interval(2,2))[1] === nothing)
+    @test !(IntervalTrees.firstintersection(t.root, Interval(4,4), Interval(2,2)) === nothing)
 
     x = IntervalTrees.Intersection{Int, Interval{Int}, 4}()
     IntervalTrees.firstintersection!(t, Interval(4,4), Interval(2,2),
