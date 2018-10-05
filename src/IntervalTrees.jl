@@ -12,6 +12,7 @@ export
     value
 
 using Base: notnothing
+using Nullables
 
 include("slice.jl")
 
@@ -1404,9 +1405,9 @@ mutable struct IntersectionIterator{F, K, V1, B1, V2, B2}
     isdone::Bool
 
     # intersection state
-    u::Union{Nothing, LeafNode{K, V1, B1}}
-    v::Union{Nothing, LeafNode{K, V2, B2}}
-    w::Union{Nothing, LeafNode{K, V2, B2}}
+    u::Nullable{LeafNode{K, V1, B1}}
+    v::Nullable{LeafNode{K, V2, B2}}
+    w::Nullable{LeafNode{K, V2, B2}}
     i::Int
     j::Int
     k::Int
@@ -1424,8 +1425,8 @@ function Base.iterate(it::IntersectionIterator, _=iterinitstate(it))
         return nothing
     end
 
-    u = notnothing(it.u)
-    w = notnothing(it.w)
+    u = get(it.u)
+    w = get(it.w)
     value = (u.entries[it.i], w.entries[it.k])
 
     if it.successive
@@ -1438,11 +1439,11 @@ function Base.iterate(it::IntersectionIterator, _=iterinitstate(it))
     return value, nothing
 end
 
-function iterinitstate(it::IntersectionIterator)
+function iterinitstate(it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F,K,V1,B1,V2,B2}
     it.isdone = true
     if it.successive
-        it.u = isempty(it.t1) ? nothing : firstleaf(it.t1)
-        it.w = isempty(it.t2) ? nothing : firstleaf(it.t2)
+        it.u = isempty(it.t1) ? Nullable{LeafNode{K,V1,B1}}() : firstleaf(it.t1)
+        it.w = isempty(it.t2) ? Nullable{LeafNode{K,V2,B2}}() : firstleaf(it.t2)
         it.i, it.k = 1, 1
         successive_nextintersection!(it)
     else
@@ -1461,9 +1462,8 @@ function iterinitstate(it::IntersectionIterator)
         # The thing to keep in mind is that this is just like the merge operation in
         # mergesort, except that some backtracking is needed since intersection
         # isn't as simple as ordering.
-
-        it.u = isempty(it.t1) ? nothing : firstleaf(it.t1)
-        it.v = isempty(it.t2) ? nothing : firstleaf(it.t2)
+        it.u = isempty(it.t1) ? Nullable{LeafNode{K,V1,B1}}() : firstleaf(it.t1)
+        it.v = isempty(it.t2) ? Nullable{LeafNode{K,V2,B2}}() : firstleaf(it.t2)
         it.w = it.v
         it.i, it.j, it.k = 1, 1, 1
         iterative_nextintersection!(it)
@@ -1474,7 +1474,10 @@ end
 function iterative_nextintersection!(
     it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
 
-    u, v, w, i, j, k = it.u, it.v, it.w, it.i, it.j, it.k
+    u = isnull(it.u) ? nothing : get(it.u)
+    v = isnull(it.v) ? nothing : get(it.v)
+    w = isnull(it.w) ? nothing : get(it.w)
+    i, j, k = it.i, it.j, it.k
 
     it.isdone = true
 
@@ -1530,9 +1533,9 @@ function iterative_nextintersection!(
         w, k = v, j
     end
 
-    it.u = u
-    it.v = v
-    it.w = w
+    it.u = u === nothing ? Nullable{LeafNode{K,V1,B1}}() : Nullable(u)
+    it.v = v === nothing ? Nullable{LeafNode{K,V2,B2}}() : Nullable(v)
+    it.w = w === nothing ? Nullable{LeafNode{K,V2,B2}}() : Nullable(w)
     it.i = i
     it.j = j
     it.k = k
@@ -1543,7 +1546,9 @@ end
 function successive_nextintersection!(
     it::IntersectionIterator{F, K, V1, B1, V2, B2}) where {F, K, V1, B1, V2, B2}
 
-    u, w, i, k = it.u, it.w, it.i, it.k
+    u = isnull(it.u) ? nothing : get(it.u)
+    w = isnull(it.w) ? nothing : get(it.w)
+    i, k =it.i, it.k
 
     it.isdone = true
 
@@ -1613,8 +1618,8 @@ function successive_nextintersection!(
         end
     end
 
-    it.u = u
-    it.w = w
+    it.u = u === nothing ? Nullable{LeafNode{K,V1,B1}}() : Nullable(u)
+    it.w = w === nothing ? Nullable{LeafNode{K,V2,B2}}() : Nullable(w)
     it.i = i
     it.k = k
     return
