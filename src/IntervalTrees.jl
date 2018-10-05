@@ -1215,7 +1215,7 @@ function firstintersection(t::InternalNode{K, V, B},
                            query::Interval{K},
                            lower::Union{Nothing, Interval{K}}) where {K, V, B}
     if isempty(t) || t.maxend < first(query)
-        return (nothing, 1)
+        return nothing
     end
 
     i = lower === nothing ? 1 : searchsortedfirst(t.keys, notnothing(lower))
@@ -1225,13 +1225,13 @@ function firstintersection(t::InternalNode{K, V, B},
             break
         end
         if t.maxends[i] >= first(query)
-            w, k = firstintersection(t.children[i], query, lower)
-            w !== nothing && return notnothing(w), k
+            result = firstintersection(t.children[i], query, lower)
+            result !== nothing && return result
         end
         i += 1
     end
 
-    return (nothing, 1)
+    return nothing
 end
 
 
@@ -1239,7 +1239,7 @@ function firstintersection(t::LeafNode{K, V, B}, query::Interval{K},
                            lower::Union{Nothing, Interval{K}}) where {K, V, B}
 
     if isempty(t) || t.maxend < first(query)
-        return (nothing, 1)
+        return nothing
     end
 
     i = lower === nothing ? 1 : searchsortedfirst(t.keys, notnothing(lower))
@@ -1254,7 +1254,7 @@ function firstintersection(t::LeafNode{K, V, B}, query::Interval{K},
         i += 1
     end
 
-    return (nothing, 1)
+    return nothing
 end
 
 
@@ -1423,16 +1423,15 @@ function Base.iterate(it::IntersectionIterator, _=iterinitstate(it))
     if it.isdone
         return nothing
     end
+
+    u = notnothing(it.u)
+    w = notnothing(it.w)
+    value = (u.entries[it.i], w.entries[it.k])
+
     if it.successive
-        u = it.u
-        w = it.w
-        value = (u.entries[it.i], w.entries[it.k])
         @nextleafkey(w, it.w, it.k)
         successive_nextintersection!(it)
     else
-        u = it.u
-        w = it.w
-        value = (u.entries[it.i], w.entries[it.k])
         @nextleafkey(w, it.w, it.k)
         iterative_nextintersection!(it)
     end
@@ -1548,12 +1547,13 @@ function successive_nextintersection!(
 
     it.isdone = true
 
+    # iterate over t1 intervals
     while true
         u === nothing && return
         unode = notnothing(u)
         ukey = unode.keys[i]
 
-        # find next intersection w
+        # find next intersection with ukey in t2
         while w !== nothing
             wnode = notnothing(w)
             wkey = wnode.keys[k]
@@ -1577,8 +1577,13 @@ function successive_nextintersection!(
                     # extremely long intervals.
                     if w !== nothing && w.maxend < first(ukey)
                         wnode = notnothing(w)
-                        w, k = firstintersection(it.t2.root, ukey,
-                                                 wnode.keys[wnode.count])
+                        result = firstintersection(
+                            it.t2.root, ukey, wnode.keys[wnode.count])
+                        if result === nothing
+                            w = nothing
+                        else
+                            w, k = result
+                        end
                     end
                 end
             else
@@ -1600,7 +1605,12 @@ function successive_nextintersection!(
         unode = notnothing(u)
         ukey = unode.keys[i]
 
-        w, k = firstintersection(it.t2.root, ukey, nothing)
+        result = firstintersection(it.t2.root, ukey, nothing)
+        if result === nothing
+            w = nothing
+        else
+            w, k = result
+        end
     end
 
     it.u = u
