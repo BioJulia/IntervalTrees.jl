@@ -1,4 +1,4 @@
-<h1><img align="right" src="./sticker.svg" width="30%" /> IntervalTrees</h1>
+<h1><img align="right" src="./docs/src/assets/logo.svg" width="30%" /> IntervalTrees</h1>
 
 [![Latest Release](https://img.shields.io/github/release/BioJulia/IntervalTrees.jl.svg)](https://github.com/BioJulia/IntervalTrees.jl/releases/latest)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/BioJulia/IntervalTrees.jl/blob/master/LICENSE)
