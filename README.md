@@ -1,10 +1,10 @@
 <h1><img align="right" src="./sticker.svg" width="30%" /> IntervalTrees</h1>
 
-[![Latest Release](https://img.shields.io/github/release/BioJulia/IntervalTrees.jl.svg?style=flat-square)](https://github.com/BioJulia/IntervalTrees.jl/releases/latest)
-[![MIT License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](https://github.com/BioJulia/IntervalTrees.jl/blob/master/LICENSE)
-[![Stable documentation](https://img.shields.io/badge/docs-stable-blue.svg?style=flat-square)](https://biojulia.github.io/IntervalTrees.jl/stable)
-![Lifecycle](https://img.shields.io/badge/lifecycle-stable-green.svg?style=flat-square)
-[![Chat on Discord](https://img.shields.io/badge/discord-chat-blue.svg?style=flat-square&logo=discord&colorB=%237289DA)](https://discord.gg/z73YNFz)
+[![Latest Release](https://img.shields.io/github/release/BioJulia/IntervalTrees.jl.svg)](https://github.com/BioJulia/IntervalTrees.jl/releases/latest)
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/BioJulia/IntervalTrees.jl/blob/master/LICENSE)
+[![Stable documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://biojulia.github.io/IntervalTrees.jl/stable)
+![Lifecycle](https://img.shields.io/badge/lifecycle-stable-green.svg)
+[![Chat on Discord](https://img.shields.io/badge/discord-chat-blue.svg?&logo=discord&colorB=%237289DA)](https://discord.gg/z73YNFz)
 
 ## Description
 
