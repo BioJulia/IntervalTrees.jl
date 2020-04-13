@@ -4,7 +4,7 @@
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/BioJulia/IntervalTrees.jl/blob/master/LICENSE)
 [![Stable documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://biojulia.github.io/IntervalTrees.jl/stable)
 ![Lifecycle](https://img.shields.io/badge/lifecycle-stable-green.svg)
-[![Chat on Discord](https://img.shields.io/badge/discord-chat-blue.svg?&logo=discord&colorB=%237289DA)](https://discord.gg/z73YNFz)
+
 
 ## Description
 
@@ -84,6 +84,4 @@ Your logo will show up here with a link to your website.
 
 ## Questions?
 
-If you have a question about contributing or using BioJulia software, come
-on over and chat to us on [Discord](https://discord.gg/z73YNFz), or you can try the
-[Bio category of the Julia discourse site](https://discourse.julialang.org/c/domain/bio).
+If you have a question about contributing or using BioJulia software, come on over and chat to us on [the Julia Slack workspace](https://julialang.org/slack/), or you can try the [Bio category of the Julia discourse site](https://discourse.julialang.org/c/domain/bio).
