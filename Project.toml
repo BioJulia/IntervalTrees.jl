@@ -1,0 +1,14 @@
+name = "IntervalTrees"
+uuid = "524e6230-43b7-53ae-be76-1e9e4d08d11b"
+authors = ["Daniel C. Jones <dcjones@cs.washington.edu>", "Kenta Sato <bicycle1885@gmail.com>"]
+version = "1.0.0"
+
+[compat]
+julia = "0.7, 1"
+
+[extras]
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Random", "Test"]
