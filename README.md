@@ -41,12 +41,9 @@ IntervalTrees is tested against Julia `0.7-1.X` on Linux, OS X, and Windows.
 
 ## Contributing
 
-We appreciate contributions from users including reporting bugs, fixing
-issues, improving performance and adding new features.
+We appreciate [contributions](https://github.com/BioJulia/IntervalTrees.jl/graphs/contributors) from users including reporting bugs, fixing issues, improving performance and adding new features.
 
-Take a look at the [CONTRIBUTING](CONTRIBUTING.md) file provided with
-every BioJulia package package for detailed contributor and maintainer
-guidelines.
+Take a look at the [contributing files](https://github.com/BioJulia/Contributing) detailed contributor and maintainer guidelines, and code of conduct.
 
 
 ### Financial contributions
