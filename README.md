@@ -30,11 +30,13 @@ the master branch to try new features before release.
 
 ## Testing
 
-IntervalTrees is tested against Julia `0.7` on Linux, OS X, and Windows.
+IntervalTrees is tested against Julia `0.7-1.X` on Linux, OS X, and Windows.
 
-| **PackageEvaluator** | **Latest Build Status** |
-|:--------------------:|:-----------------------:|
-| [![](http://pkg.julialang.org/badges/IntervalTrees_0.7.svg)](http://pkg.julialang.org/?pkg=IntervalTrees) | [![](https://travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/BioJulia/IntervalTrees.jl) [![Build status](https://ci.appveyor.com/api/projects/status/3rwbgr40npp95upe/branch/master?svg=true)](https://ci.appveyor.com/project/BenJWard/intervaltrees-jl/branch/master) [![](https://codecov.io/gh/BioJulia/IntervalTrees.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/BioJulia/IntervalTrees.jl) |
+**Latest build status:**
+
+[![Unit tests](https://github.com/BioJulia/IntervalTrees.jl/workflows/Unit%20tests/badge.svg?branch=master)](https://github.com/BioJulia/IntervalTrees.jl/actions?query=workflow%3A%22Unit+tests%22+branch%3Amaster)
+[![Documentation](https://github.com/BioJulia/IntervalTrees.jl/workflows/Documentation/badge.svg?branch=master)](https://github.com/BioJulia/IntervalTrees.jl/actions?query=workflow%3ADocumentation+branch%3Amaster)
+[![codecov](https://codecov.io/gh/BioJulia/IntervalTrees.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/BioJulia/IntervalTrees.jl)
 
 
 ## Contributing
