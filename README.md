@@ -22,9 +22,7 @@ Press `]` to enter [pkg mode](https://docs.julialang.org/en/v1/stdlib/Pkg/), the
 add IntervalTrees
 ```
 
-If you are interested in the cutting edge of the development, please check out
-the master branch to try new features before release.
-
+If you are interested in the cutting edge of the development, please check out the [master branch](https://github.com/BioJulia/IntervalTrees.jl/tree/master) to try new features before release.
 
 ## Testing
 
