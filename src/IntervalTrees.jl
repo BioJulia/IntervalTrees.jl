@@ -22,6 +22,8 @@ must always be true.
 """
 abstract type AbstractInterval{T} end
 
+Base.first(i::AbstractInterval{T}) where T = i.first
+Base.last(i::AbstractInterval{T}) where T = i.last
 
 function basic_isless(u::AbstractInterval, v::AbstractInterval)
     return first(u) < first(v) || (first(u) == first(v) && last(u) < last(v))
@@ -41,8 +43,6 @@ end
 Base.convert(::Type{Interval{T}}, range::AbstractRange{T}) where T =
     Interval(first(range), last(range))
 Interval(range::AbstractRange{T}) where T = convert(Interval{T}, range)
-Base.first(i::Interval{T}) where T = i.first
-Base.last(i::Interval{T}) where T = i.last
 
 """
 An interval with some associated data.
@@ -58,8 +58,6 @@ IntervalValue(range::AbstractRange{K}, value::V) where {K, V} =
 
 valtype(::Type{IntervalValue{K,V}}) where {K, V} = V
 
-Base.first(i::IntervalValue{K, V}) where {K, V} = i.first
-Base.last(i::IntervalValue{K, V}) where {K, V} = i.last
 value(i::IntervalValue{K, V}) where {K, V} = i.value
 
 Base.print(io::IO, x::Interval) = print(io, "\n($(first(x)),$(last(x)))")
