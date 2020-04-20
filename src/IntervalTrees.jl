@@ -995,8 +995,8 @@ end
 
 function Base.haskey(t::LeafNode{K, V, B}, key::AbstractInterval{K}) where {K, V, B}
     i = findidx(t, key)
-    return 1 <= i <= length(t) && first(t.keys[i]) == key.first &&
-           last(t.keys[i]) == key.last
+    return 1 <= i <= length(t) && first(t.keys[i]) == first(key) &&
+           last(t.keys[i]) == last(key)
 end
 
 
@@ -1200,7 +1200,7 @@ function firstintersection!(t::LeafNode{K, V, B},
             out.index = i
             out.node = t
             return
-        elseif query.last < first(t.keys[i])
+        elseif last(query) < first(t.keys[i])
             break
         end
         i += 1
