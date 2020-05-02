@@ -42,7 +42,7 @@ function _getindex(t::LeafNode{K, V, B}, key::AbstractInterval{K}) where {K, V, 
         last(t.entries[i]) == last(key)
         return t.entries[i]
     else
-        error(KeyError((key.first, key.last)))
+        error(KeyError((first(key), last(key))))
     end
 end
 
@@ -84,7 +84,7 @@ end
 
 
 function Base.get!(t::IntervalBTree{K, V, B}, key::AbstractInterval{K}, default) where {K, V, B}
-    return push!(t, V(key.first, key.last, default), true, false)
+    return push!(t, V(first(key), last(key), default), true, false)
 end
 
 
