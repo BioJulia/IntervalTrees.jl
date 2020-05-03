@@ -1343,9 +1343,6 @@ mutable struct IntervalIntersectionIterator{F, K, V, B}
         return new{F,K,V,B}(filter, intersection, t, query)
     end
 
-    function IntervalIntersectionIterator{F,K,V,B}() where {F,K,V,B}
-        return new{F,K,V,B}(Intersection{F, K, V, B}())
-    end
 end
 
 Base.eltype(::Type{IntervalIntersectionIterator{F,K,V,B}}) where {F,K,V,B} = V
