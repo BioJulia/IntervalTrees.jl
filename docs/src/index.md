@@ -16,12 +16,10 @@ In other words they are associative contains that map intervals to values.
 
 ## Installation
 
-Install IntervalTrees from the Julia REPL:
-
+You can install the IntervalTrees package from the [Julia REPL](https://docs.julialang.org/en/v1/manual/getting-started/).
+Press `]` to enter [pkg mode](https://docs.julialang.org/en/v1/stdlib/Pkg/), then enter the following command:
 ```julia
-using Pkg
-add("IntervalTrees")
-# Pkg.add("IntervalTrees") for julia prior to v0.7
+add IntervalTrees
 ```
 
 If you are interested in the cutting edge of the development, please check out
