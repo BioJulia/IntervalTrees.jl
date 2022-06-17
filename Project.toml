@@ -1,6 +1,6 @@
 name = "IntervalTrees"
 uuid = "524e6230-43b7-53ae-be76-1e9e4d08d11b"
-authors = ["Daniel C. Jones <dcjones@cs.washington.edu>", "Kenta Sato <bicycle1885@gmail.com>", "Ben J. Ward <benjward@protonmail.com>"]
+authors = ["Daniel C. Jones <dcjones@cs.washington.edu>", "Kenta Sato <bicycle1885@gmail.com>", "Sabrina J. Ward <sabrinajward@protonmail.com>"]
 version = "1.0.0"
 
 [compat]
