@@ -1,10 +1,10 @@
 # IntervalTrees
 
-[![Latest Release](https://img.shields.io/github/release/BioJulia/IntervalTrees.jl.svg?style=flat-square)](https://github.com/BioJulia/IntervalTrees.jl/releases/latest)
-[![MIT License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](https://github.com/BioJulia/IntervalTrees.jl/blob/master/LICENSE)
-[![Stable documentation](https://img.shields.io/badge/docs-stable-blue.svg?style=flat-square)](https://biojulia.github.io/IntervalTrees.jl/stable)
-![Lifecycle](https://img.shields.io/badge/lifecycle-stable-green.svg?style=flat-square)
-[![Chat on Discord](https://img.shields.io/badge/discord-chat-blue.svg?style=flat-square&logo=discord&colorB=%237289DA)](https://discord.gg/z73YNFz)
+[![Latest Release](https://img.shields.io/github/release/BioJulia/IntervalTrees.jl.svg)](https://github.com/BioJulia/IntervalTrees.jl/releases/latest)
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/BioJulia/IntervalTrees.jl/blob/master/LICENSE)
+[![Stable documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://biojulia.github.io/IntervalTrees.jl/stable)
+![Lifecycle](https://img.shields.io/badge/lifecycle-stable-green.svg)
+
 
 ## Description
 
@@ -16,35 +16,31 @@ In other words they are associative contains that map intervals to values.
 
 ## Installation
 
-Install IntervalTrees from the Julia REPL:
-
+You can install the IntervalTrees package from the [Julia REPL](https://docs.julialang.org/en/v1/manual/getting-started/).
+Press `]` to enter [pkg mode](https://docs.julialang.org/en/v1/stdlib/Pkg/), then enter the following command:
 ```julia
-using Pkg
-add("IntervalTrees")
-# Pkg.add("IntervalTrees") for julia prior to v0.7
+add IntervalTrees
 ```
 
-If you are interested in the cutting edge of the development, please check out
-the master branch to try new features before release.
+If you are interested in the cutting edge of the development, please check out the [master branch](https://github.com/BioJulia/IntervalTrees.jl/tree/master) to try new features before release.
 
 
 ## Testing
 
-IntervalTrees is tested against Julia `0.7` on Linux, OS X, and Windows.
+IntervalTrees is tested against Julia `0.7-1.X` on Linux, OS X, and Windows.
 
-| **PackageEvaluator** | **Latest Build Status** |
-|:--------------------:|:-----------------------:|
-| [![](https://pkg.julialang.org/badges/IntervalTrees_0.7.svg)](https://pkg.julialang.org/?pkg=IntervalTrees) | [![](https://travis-ci.org/BioJulia/IntervalTrees.jl.svg?branch=master)](https://travis-ci.org/BioJulia/IntervalTrees.jl) [![Build status](https://ci.appveyor.com/api/projects/status/3rwbgr40npp95upe/branch/master?svg=true)](https://ci.appveyor.com/project/BenJWard/intervaltrees-jl/branch/master) [![](https://codecov.io/gh/BioJulia/IntervalTrees.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/BioJulia/IntervalTrees.jl) |
+**Latest build status:**
+
+[![Unit tests](https://github.com/BioJulia/IntervalTrees.jl/workflows/Unit%20tests/badge.svg?branch=master)](https://github.com/BioJulia/IntervalTrees.jl/actions?query=workflow%3A%22Unit+tests%22+branch%3Amaster)
+[![Documentation](https://github.com/BioJulia/IntervalTrees.jl/workflows/Documentation/badge.svg?branch=master)](https://github.com/BioJulia/IntervalTrees.jl/actions?query=workflow%3ADocumentation+branch%3Amaster)
+[![codecov](https://codecov.io/gh/BioJulia/IntervalTrees.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/BioJulia/IntervalTrees.jl)
 
 
 ## Contributing
 
-We appreciate contributions from users including reporting bugs, fixing
-issues, improving performance and adding new features.
+We appreciate [contributions](https://github.com/BioJulia/IntervalTrees.jl/graphs/contributors) from users including reporting bugs, fixing issues, improving performance and adding new features.
 
-Take a look at the [CONTRIBUTING](https://github.com/BioJulia/IntervalTrees.jl/blob/master/CONTRIBUTING.md) file provided with
-every BioJulia package package for detailed contributor and maintainer
-guidelines.
+Take a look at the [contributing files](https://github.com/BioJulia/Contributing) detailed contributor and maintainer guidelines, and code of conduct.
 
 
 ### Financial contributions
@@ -82,6 +78,4 @@ Your logo will show up here with a link to your website.
 
 ## Questions?
 
-If you have a question about contributing or using BioJulia software, come
-on over and chat to us on [Discord](https://discord.gg/z73YNFz), or you can try the
-[Bio category of the Julia discourse site](https://discourse.julialang.org/c/domain/bio).
+If you have a question about contributing or using BioJulia software, come on over and chat to us on [the Julia Slack workspace](https://julialang.org/slack/), or you can try the [Bio category of the Julia discourse site](https://discourse.julialang.org/c/domain/bio).
