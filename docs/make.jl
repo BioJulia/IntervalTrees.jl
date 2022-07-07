@@ -1,4 +1,5 @@
-using Documenter, IntervalTrees
+using Pkg,
+Documenter, IntervalTrees
 
 makedocs(
     format = Documenter.HTML(
