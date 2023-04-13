@@ -1,6 +1,7 @@
 <h1><img align="right" src="./docs/src/assets/logo.svg" width="30%" /> IntervalTrees</h1>
 
 [![Latest Release](https://img.shields.io/github/release/BioJulia/IntervalTrees.jl.svg)](https://github.com/BioJulia/IntervalTrees.jl/releases/latest)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7825872.svg)](https://doi.org/10.5281/zenodo.7825872)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/BioJulia/IntervalTrees.jl/blob/master/LICENSE)
 [![Stable documentation](https://img.shields.io/badge/docs-stable-blue.svg)](https://biojulia.github.io/IntervalTrees.jl/stable)
 ![Lifecycle](https://img.shields.io/badge/lifecycle-stable-green.svg)
