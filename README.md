@@ -31,7 +31,7 @@ IntervalTrees is tested against Julia `0.7-1.X` on Linux, OS X, and Windows.
 
 **Latest build status:**
 
-[![Unit tests](https://github.com/BioJulia/IntervalTrees.jl/workflows/Unit%20tests/badge.svg?branch=master)](https://github.com/BioJulia/IntervalTrees.jl/actions?query=workflow%3A%22Unit+tests%22+branch%3Amaster)
+[![Unit Tests](https://github.com/BioJulia/IntervalTrees.jl/actions/workflows/UnitTests.yml/badge.svg)](https://github.com/BioJulia/IntervalTrees.jl/actions/workflows/UnitTests.yml)
 [![Documentation](https://github.com/BioJulia/IntervalTrees.jl/workflows/Documentation/badge.svg?branch=master)](https://github.com/BioJulia/IntervalTrees.jl/actions?query=workflow%3ADocumentation+branch%3Amaster)
 [![codecov](https://codecov.io/gh/BioJulia/IntervalTrees.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/BioJulia/IntervalTrees.jl)
 
