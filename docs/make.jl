@@ -6,7 +6,6 @@ makedocs(
     linkcheck = true,
     format = Documenter.HTML(
         prettyurls = !("local" in ARGS),
-        canonical = "https://biojulia.net/BufferedStreams.jl/stable/",
         edit_link = "master",
         sidebar_sitename = false
     ),
