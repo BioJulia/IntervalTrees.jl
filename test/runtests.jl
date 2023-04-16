@@ -1,10 +1,10 @@
 #!/usr/bin/env julia
+using Test
+using Documenter
 
 using IntervalTrees
 import IntervalTrees: Slice, InternalNode, LeafNode, Interval, IntervalBTree
-using Test
 using Random: seed!, shuffle!
-
 
 # Convert
 @testset "Convert and constructors" begin
@@ -661,4 +661,10 @@ end
     node = LeafNode{Int, IntervalValue{Int}, 32}()
     push!(node, IntervalValue{Int, Int}(1, 1, 1))
     @test IntervalTrees.findidx(node, x) == 1
+end
+
+@testset "DocTests" begin
+    # Include doctests.
+    DocMeta.setdocmeta!(IntervalTrees, :DocTestSetup, :(using IntervalTrees); recursive=true)
+    doctest(IntervalTrees; manual = false)
 end
