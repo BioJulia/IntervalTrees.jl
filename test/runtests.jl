@@ -663,8 +663,10 @@ end
     @test IntervalTrees.findidx(node, x) == 1
 end
 
-@testset "DocTests" begin
-    # Include doctests.
-    DocMeta.setdocmeta!(IntervalTrees, :DocTestSetup, :(using IntervalTrees); recursive=true)
-    doctest(IntervalTrees; manual = false)
+@static if VERSION > v"0.7"
+    @testset "DocTests" begin
+        # Include doctests.
+        DocMeta.setdocmeta!(IntervalTrees, :DocTestSetup, :(using IntervalTrees); recursive=true)
+        doctest(IntervalTrees; manual = false)
+    end
 end

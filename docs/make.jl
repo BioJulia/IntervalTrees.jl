@@ -1,7 +1,9 @@
-using Pkg,
-Documenter, IntervalTrees
+using Pkg
+using Documenter, IntervalTrees
 
 makedocs(
+    checkdocs = :all,
+    linkcheck = true,
     format = Documenter.HTML(
         prettyurls = !("local" in ARGS),
         canonical = "https://biojulia.net/BufferedStreams.jl/stable/",
